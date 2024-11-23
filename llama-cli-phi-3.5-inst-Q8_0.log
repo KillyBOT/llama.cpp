@@ -1,0 +1,318 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+ 87.67    155.87   155.87                             ggml_vec_dot_q8_0_q8_0
+  7.82    169.78    13.91                             ggml_vec_dot_f16
+  2.19    173.68     3.90                             ggml_compute_forward_mul_mat
+  0.70    174.92     1.24                             void (anonymous namespace)::tinyBLAS_Q0_AVX<block_q8_0, block_q8_0, float>::gemm4xN<2>(long, long, long, long)
+  0.69    176.14     1.22                             ggml_compute_forward_dup_f32
+  0.35    176.76     0.62                             void (anonymous namespace)::tinyBLAS_Q0_AVX<block_q8_0, block_q8_0, float>::gemm4xN<4>(long, long, long, long)
+  0.11    176.95     0.19                             ggml_vec_dot_q5_1_q8_1
+  0.07    177.07     0.12                             _init
+  0.07    177.19     0.12                             ggml_compute_forward
+  0.06    177.30     0.11                             ggml_compute_forward_rope_f32
+  0.03    177.36     0.06                             ggml_compute_forward_soft_max
+  0.03    177.42     0.06                             ggml_rope_cache_init
+  0.02    177.46     0.04                             ggml_compute_forward_add
+  0.02    177.50     0.04                             ggml_is_contiguous_0
+  0.02    177.53     0.03                             ggml_compute_forward_unary
+  0.02    177.56     0.03                             ggml_is_empty
+  0.02    177.59     0.03                             ggml_type_size
+  0.02    177.62     0.03                             ggml_vec_soft_max_f32
+  0.01    177.63     0.01                             llama_vocab::~llama_vocab()
+  0.01    177.64     0.01                             llm_build_context::build_phi3()
+  0.01    177.65     0.01                             ggml_can_repeat
+  0.01    177.66     0.01                             ggml_compute_forward_dup_bytes
+  0.01    177.67     0.01                             ggml_compute_forward_mul
+  0.01    177.68     0.01                             ggml_compute_forward_rms_norm
+  0.01    177.69     0.01                             ggml_cpu_init
+  0.01    177.70     0.01                             ggml_fp32_to_fp16_row
+  0.01    177.71     0.01                             ggml_gallocr_alloc_graph
+  0.01    177.72     0.01                             ggml_get_rows
+  0.01    177.73     0.01                             ggml_is_numa
+  0.01    177.74     0.01                             ggml_is_transposed
+  0.01    177.75     0.01                             ggml_mul_mat
+  0.01    177.76     0.01                             ggml_n_dims
+  0.01    177.77     0.01                             ggml_nelements
+  0.01    177.78     0.01                             ggml_visit_parents
+  0.01    177.79     0.01                             quantize_row_q8_0
+  0.00    177.80     0.01                             ggml_nbytes_pad
+  0.00    177.80     0.01                             ggml_row_size
+  0.00    177.80     0.00        2     0.00     0.00  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, std::allocator<char> const&) [clone .constprop.0]
+  0.00    177.80     0.00        1     0.00     0.00  write_logfile(llama_context const*, common_params const&, llama_model const*, std::vector<int, std::allocator<int> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::vector<int, std::allocator<int> > const&)
+  0.00    177.80     0.00        1     0.00     0.00  common_params::common_params()
+  0.00    177.80     0.00        1     0.00     0.00  std::vector<common_lora_adapter_container, std::allocator<common_lora_adapter_container> >::~vector()
+  0.00    177.80     0.00        1     0.00     0.00  std::vector<std::vector<int, std::allocator<int> >, std::allocator<std::vector<int, std::allocator<int> > > >::~vector()
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2023 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.01% of 177.80 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     87.7  155.87    0.00                 ggml_vec_dot_q8_0_q8_0 [1]
+-----------------------------------------------
+                                                 <spontaneous>
+[2]      7.8   13.91    0.00                 ggml_vec_dot_f16 [2]
+-----------------------------------------------
+                                                 <spontaneous>
+[3]      2.2    3.90    0.00                 ggml_compute_forward_mul_mat [3]
+-----------------------------------------------
+                                                 <spontaneous>
+[4]      0.7    1.24    0.00                 void (anonymous namespace)::tinyBLAS_Q0_AVX<block_q8_0, block_q8_0, float>::gemm4xN<2>(long, long, long, long) [4]
+-----------------------------------------------
+                                                 <spontaneous>
+[5]      0.7    1.22    0.00                 ggml_compute_forward_dup_f32 [5]
+-----------------------------------------------
+                                                 <spontaneous>
+[6]      0.3    0.62    0.00                 void (anonymous namespace)::tinyBLAS_Q0_AVX<block_q8_0, block_q8_0, float>::gemm4xN<4>(long, long, long, long) [6]
+-----------------------------------------------
+                                                 <spontaneous>
+[7]      0.1    0.19    0.00                 ggml_vec_dot_q5_1_q8_1 [7]
+-----------------------------------------------
+                                                 <spontaneous>
+[8]      0.1    0.12    0.00                 ggml_compute_forward [8]
+-----------------------------------------------
+                                                 <spontaneous>
+[9]      0.1    0.12    0.00                 _init [9]
+-----------------------------------------------
+                                                 <spontaneous>
+[10]     0.1    0.11    0.00                 ggml_compute_forward_rope_f32 [10]
+-----------------------------------------------
+                                                 <spontaneous>
+[11]     0.0    0.06    0.00                 ggml_compute_forward_soft_max [11]
+-----------------------------------------------
+                                                 <spontaneous>
+[12]     0.0    0.06    0.00                 ggml_rope_cache_init [12]
+-----------------------------------------------
+                                                 <spontaneous>
+[13]     0.0    0.04    0.00                 ggml_compute_forward_add [13]
+-----------------------------------------------
+                                                 <spontaneous>
+[14]     0.0    0.04    0.00                 ggml_is_contiguous_0 [14]
+-----------------------------------------------
+                                                 <spontaneous>
+[15]     0.0    0.03    0.00                 ggml_compute_forward_unary [15]
+-----------------------------------------------
+                                                 <spontaneous>
+[16]     0.0    0.03    0.00                 ggml_is_empty [16]
+-----------------------------------------------
+                                                 <spontaneous>
+[17]     0.0    0.03    0.00                 ggml_type_size [17]
+-----------------------------------------------
+                                                 <spontaneous>
+[18]     0.0    0.03    0.00                 ggml_vec_soft_max_f32 [18]
+-----------------------------------------------
+                                                 <spontaneous>
+[19]     0.0    0.01    0.00                 ggml_can_repeat [19]
+-----------------------------------------------
+                                                 <spontaneous>
+[20]     0.0    0.01    0.00                 ggml_compute_forward_dup_bytes [20]
+-----------------------------------------------
+                                                 <spontaneous>
+[21]     0.0    0.01    0.00                 ggml_compute_forward_mul [21]
+-----------------------------------------------
+                                                 <spontaneous>
+[22]     0.0    0.01    0.00                 ggml_compute_forward_rms_norm [22]
+-----------------------------------------------
+                                                 <spontaneous>
+[23]     0.0    0.01    0.00                 ggml_cpu_init [23]
+-----------------------------------------------
+                                                 <spontaneous>
+[24]     0.0    0.01    0.00                 ggml_fp32_to_fp16_row [24]
+-----------------------------------------------
+                                                 <spontaneous>
+[25]     0.0    0.01    0.00                 ggml_gallocr_alloc_graph [25]
+-----------------------------------------------
+                                                 <spontaneous>
+[26]     0.0    0.01    0.00                 ggml_get_rows [26]
+-----------------------------------------------
+                                                 <spontaneous>
+[27]     0.0    0.01    0.00                 ggml_is_numa [27]
+-----------------------------------------------
+                                                 <spontaneous>
+[28]     0.0    0.01    0.00                 ggml_is_transposed [28]
+-----------------------------------------------
+                                                 <spontaneous>
+[29]     0.0    0.01    0.00                 ggml_mul_mat [29]
+-----------------------------------------------
+                                                 <spontaneous>
+[30]     0.0    0.01    0.00                 ggml_n_dims [30]
+-----------------------------------------------
+                                                 <spontaneous>
+[31]     0.0    0.01    0.00                 ggml_nelements [31]
+-----------------------------------------------
+                                                 <spontaneous>
+[32]     0.0    0.01    0.00                 ggml_visit_parents [32]
+-----------------------------------------------
+                                                 <spontaneous>
+[33]     0.0    0.01    0.00                 quantize_row_q8_0 [33]
+-----------------------------------------------
+                                                 <spontaneous>
+[34]     0.0    0.01    0.00                 llama_vocab::~llama_vocab() [34]
+-----------------------------------------------
+                                                 <spontaneous>
+[35]     0.0    0.01    0.00                 llm_build_context::build_phi3() [35]
+-----------------------------------------------
+                                                 <spontaneous>
+[36]     0.0    0.01    0.00                 ggml_nbytes_pad [36]
+-----------------------------------------------
+                                                 <spontaneous>
+[37]     0.0    0.01    0.00                 ggml_row_size [37]
+-----------------------------------------------
+                0.00    0.00       2/2           main [838]
+[920]    0.0    0.00    0.00       2         std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, std::allocator<char> const&) [clone .constprop.0] [920]
+-----------------------------------------------
+                0.00    0.00       1/1           main [838]
+[921]    0.0    0.00    0.00       1         write_logfile(llama_context const*, common_params const&, llama_model const*, std::vector<int, std::allocator<int> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::vector<int, std::allocator<int> > const&) [921]
+-----------------------------------------------
+                0.00    0.00       1/1           main [838]
+[922]    0.0    0.00    0.00       1         common_params::common_params() [922]
+-----------------------------------------------
+                0.00    0.00       1/1           main [838]
+[923]    0.0    0.00    0.00       1         std::vector<common_lora_adapter_container, std::allocator<common_lora_adapter_container> >::~vector() [923]
+-----------------------------------------------
+                0.00    0.00       1/1           main [838]
+[924]    0.0    0.00    0.00       1         std::vector<std::vector<int, std::allocator<int> >, std::allocator<std::vector<int, std::allocator<int> > > >::~vector() [924]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2023 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+ [921] write_logfile(llama_context const*, common_params const&, llama_model const*, std::vector<int, std::allocator<int> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::vector<int, std::allocator<int> > const&) (main.cpp) [5] ggml_compute_forward_dup_f32 (ggml-cpu.c) [28] ggml_is_transposed
+  [34] llama_vocab::~llama_vocab() [21] ggml_compute_forward_mul (ggml-cpu.c) [29] ggml_mul_mat
+   [4] void (anonymous namespace)::tinyBLAS_Q0_AVX<block_q8_0, block_q8_0, float>::gemm4xN<2>(long, long, long, long) (sgemm.cpp) [3] ggml_compute_forward_mul_mat (ggml-cpu.c) [30] ggml_n_dims
+   [6] void (anonymous namespace)::tinyBLAS_Q0_AVX<block_q8_0, block_q8_0, float>::gemm4xN<4>(long, long, long, long) (sgemm.cpp) [22] ggml_compute_forward_rms_norm (ggml-cpu.c) [36] ggml_nbytes_pad
+ [922] common_params::common_params() [10] ggml_compute_forward_rope_f32 (ggml-cpu.c) [31] ggml_nelements
+  [35] llm_build_context::build_phi3() [11] ggml_compute_forward_soft_max (ggml-cpu.c) [12] ggml_rope_cache_init (ggml-cpu.c)
+ [923] std::vector<common_lora_adapter_container, std::allocator<common_lora_adapter_container> >::~vector() [15] ggml_compute_forward_unary (ggml-cpu.c) [37] ggml_row_size
+ [924] std::vector<std::vector<int, std::allocator<int> >, std::allocator<std::vector<int, std::allocator<int> > > >::~vector() [23] ggml_cpu_init [17] ggml_type_size
+ [920] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, std::allocator<char> const&) [clone .constprop.0] (basic_string.h) [24] ggml_fp32_to_fp16_row [2] ggml_vec_dot_f16 (ggml-cpu.c)
+   [9] _init                  [25] ggml_gallocr_alloc_graph [7] ggml_vec_dot_q5_1_q8_1
+  [19] ggml_can_repeat        [26] ggml_get_rows           [1] ggml_vec_dot_q8_0_q8_0
+   [8] ggml_compute_forward (ggml-cpu.c) [14] ggml_is_contiguous_0 [18] ggml_vec_soft_max_f32 (ggml-cpu.c)
+  [13] ggml_compute_forward_add (ggml-cpu.c) [16] ggml_is_empty [32] ggml_visit_parents (ggml.c)
+  [20] ggml_compute_forward_dup_bytes (ggml-cpu.c) [27] ggml_is_numa [33] quantize_row_q8_0
