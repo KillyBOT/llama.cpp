@@ -267,6 +267,17 @@ if (GGML_LLAMAFILE)
     set(GGML_SOURCES_LLAMAFILE llamafile/sgemm.cpp)
 endif()
 
+if (GGML_ESP_RISCV)
+    message(STATUS "Using ESP with RISC-V")
+
+    add_compile_definitions(GGML_USE_ESP_RISCV)
+
+    file(GLOB GGML_HEADERS_ESP_RISCV "esp-riscv/*.h")
+    set(GGML_SOURCES_ESP_RISCV esp-riscv/esp-gemm.c)
+
+    # TODO: Link libesp libraries here
+endif()
+
 if (GGML_AMX)
     if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 11.0)
     else()
@@ -1388,6 +1399,7 @@ add_library(ggml
             ${GGML_SOURCES_LLAMAFILE} ${GGML_HEADERS_LLAMAFILE}
             ${GGML_SOURCES_AMX}       ${GGML_HEADERS_AMX}
             ${GGML_SOURCES_CANN}      ${GGML_HEADERS_CANN}
+            ${GGML_SOURCES_ESP_RISCV} ${GGML_HEADERS_ESP_RISCV}
             ggml-aarch64.c            ggml-aarch64.h
             )
 

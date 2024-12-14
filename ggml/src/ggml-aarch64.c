@@ -658,9 +658,10 @@ size_t quantize_q4_0_8x8(const float *restrict src, void *restrict dst,
 void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
                              const void *restrict vx, const void *restrict vy,
                              int nr, int nc) {
-  /* e refers to elements
+  /* e refers to number of elements
    * b refers to block
-   * s refers to sub-block
+   * u refers to sub-blocks
+   * q refers to quant
    * n refers to number of
    * z refers to size
    * c refers to col
@@ -670,23 +671,21 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
    * d refers to dest */
 
   /* block_q4_0 and block_q8_0 each contain 32 quantized values. block_q4_0x4
-   * contains four block_q4_0 */
+   * contains four block_q4_0s, which means 128 total values */
 
-  /* qk : Length of a block after being de-quantized
-   * nb : Number of vector blocks; number of elements per matrix row
-   * ncols_interleaved : Number of sub-blocks; number of columns per matrix
-   * block
-   * blocklen : Number of bytes per each block sub-block; number of rows
-   * per matrix block * 2 */
-  const int b_l = QK8_0;
-  const int b_n = n / b_l;
-  const int s_n = 4;
-  const int s_z = 4;
+  /* qk : Number of elements per dequantized block (be)
+   * nb : Number of blocks per row
+   * ncols_interleaved : Number of sub-blocks per block
+   * blocklen : Size of a sub-block */
+  const int qk = QK8_0;
+  const int bn = n / qk;
+  const int un = 4;
+  const int uz = 4;
 
-  /* Can the matrix columns be evenly split into blocks? */
-  assert(n % b_n == 0);
-  /* Can the vector blocks be split into sub-blocks evenly? */
-  assert(nc % s_n == 0);
+  /* Can the matrix rows be evenly split into blocks? */
+  assert(n % qk == 0);
+  /* Can the vector blocks be split into sub-blocks as well? */
+  assert(nc % un == 0);
 
   UNUSED(s);
   UNUSED(bs);
@@ -694,9 +693,9 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
   UNUSED(vy);
   UNUSED(nr);
   UNUSED(nc);
-  UNUSED(b_n);
-  UNUSED(s_n);
-  UNUSED(s_z);
+  UNUSED(bn);
+  UNUSED(un);
+  UNUSED(uz);
 
 #if !((defined(_MSC_VER)) && !defined(__clang__)) && defined(__aarch64__) &&   \
     defined(__ARM_NEON)
@@ -767,56 +766,50 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
   int sumi;
 
   /* Pointer to the vector, interpreted as an array of block_q8_0 */
-  const block_q8_0 *v_b_ptr = (const block_q8_0 *)vy;
-  /* For each matrix block column */
-  for (int c = 0; c < nc / s_n; c++) {
+  const block_q8_0 *v_ptr = (const block_q8_0 *)vy;
+  /* For each matrix column (there are un sub-blocks per block, so there are nc
+   * / un total blockx4s)*/
+  for (int c = 0; c < nc / un; c++) {
     /* Pointer to the matrix. Since the matrix is in column-major order, this
      * points to the top of the current block-group column. Interpreted as an
      * array of block_q4_0x4s, which is a block group containing four
      * block_q4_0 */
-    const block_q4_0x4 *m_bg_ptr = (const block_q4_0x4 *)vx + (c * b_n);
+    const block_q4_0x4 *m_ptr = (const block_q4_0x4 *)vx + (c * bn);
 
-    for (int bc = 0; bc < s_n; bc++)
-      sumf[bc] = 0.0;
+    for (int b = 0; b < un; b++)
+      sumf[b] = 0.0;
 
-    /* For each vector block/matrix block the column...
-     */
-    for (int b = 0; b < b_n; b++) {
-      /* For each sub-block...
-       * Number of sub-blocks == number of elements per block  /
-       * number of elements per sub-block (sl = sz * 2, there are two elements
-       * per sub-block byte) */
-      for (int s = 0; s < (b_l / (2 * s_z)); s++) {
-        /* For each interleaved  */
-        for (int sc = 0; sc < s_n; sc++) {
+    /* For each block in the vector/matrix row */
+    for (int b = 0; b < bn; b++) {
+      /* For each vector sub-block...*/
+      /* 2 * comes from the fact that there are twice as many  */
+      for (int vu = 0; vu < (qk / (2 * uz)); vu++) {
+        /* For each matrix sub-block... */
+        /* You can think of matrix sub-blocks as being columns */
+        for (int mu = 0; mu < un; mu++) {
           sumi = 0;
           /* For each sub-block byte... */
-          for (int s_byte = 0; s_byte < s_z; ++s_byte) {
-            /* Blocks are in column-major order */
+          for (int off = 0; off < uz; ++off) {
+            /* There are two quants per matrix sub-block, so we need to get both
+             */
             const int lo =
-                (int8_t)(m_bg_ptr[b].qs[s * s_n * s_z + sc * s_z + s_byte]
-                         << 4);
+                (int8_t)(m_ptr[b].qs[vu * uz * un + uz * mu + off] << 4);
             const int hi =
-                (int8_t)(m_bg_ptr[b].qs[s * s_n * s_z + sc * s_z + s_byte] &
-                         0xF0);
+                (int8_t)(m_ptr[b].qs[vu * uz * un + uz * mu + off] & 0xF0);
 
-            /* The vector has no sub-blocks, so we instead we use the current
-             * sub-block as the block column*/
-            /* The lo and hi nibbles are interleaved (0.lo, 1.lo,
-             * ..., n.lo, 0.hi, 1.hi, ...), which is where the b_ne / 2 comes
-             * from */
-            sumi += ((lo * v_b_ptr[b].qs[s * s_z + s_byte]) +
-                     (hi * v_b_ptr[b].qs[s * s_z + s_byte + b_l / 2])) >>
+            /* There is only one quant per byte for vectors */
+            sumi += ((lo * v_ptr[b].qs[vu * uz + off]) +
+                     (hi * v_ptr[b].qs[vu * uz + off + qk / 2])) >>
                     4;
           }
-          sumf[sc] += sumi * GGML_FP16_TO_FP32(m_bg_ptr[b].d[sc]) *
-                      GGML_FP16_TO_FP32(v_b_ptr[b].d);
+          sumf[mu] += sumi * GGML_FP16_TO_FP32(m_ptr[b].d[mu]) *
+                      GGML_FP16_TO_FP32(v_ptr[b].d);
         }
       }
     }
-    /* Assign ns values of the result */
-    for (int j = 0; j < s_n; j++)
-      s[j * s_n + j] = sumf[j];
+    /* Assign un values of the result */
+    for (int u = 0; u < un; u++)
+      s[c * un + u] = sumf[u];
   }
 }
 
@@ -828,9 +821,9 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
  * vy: Vector of Q8_0 elements
  * nr: Number of vector cols (should always be 1)
  * nc: Number of vector rows; number of matrix cols; destination len */
-void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
-                             const void *restrict vx, const void *restrict vy,
-                             int nr, int nc) {
+void ggml_gemv_q4_0_4x4_q8_0_esp(int n, float *restrict s, size_t bs,
+                                 const void *restrict vx,
+                                 const void *restrict vy, int nr, int nc) {
   /* e refers to elements
    * b refers to block/chunk
    * n refers to number of
