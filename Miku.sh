@@ -2,7 +2,7 @@
 set -e
 
 AI_NAME="${AI_NAME:-Miku}"
-MODEL="${MODEL:-./models/llama-2-7b-chat-Q5_K_M.gguf}"
+MODEL="${MODEL:-models/llama-2-7b-chat-Q5_K_M.gguf}"
 USER_NAME="${USER_NAME:-Anon}"
 
 # Uncomment and adjust to the number of CPU cores you want to use.
@@ -22,7 +22,7 @@ if [ -n "$N_THREAD" ]; then
     GEN_OPTIONS+=(--threads "$N_THREAD")
 fi
 
-.llama-cli "${GEN_OPTIONS[@]}" \
+./llama-cli "${GEN_OPTIONS[@]}" \
     --model "$MODEL" \
     --in-prefix " " \
     --in-suffix "${AI_NAME}:" \

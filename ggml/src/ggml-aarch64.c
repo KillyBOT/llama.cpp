@@ -655,9 +655,9 @@ size_t quantize_q4_0_8x8(const float *restrict src, void *restrict dst,
  * vy: Vector of Q8_0 blocks
  * nr: Number of vector rows (should always be 1 in this case)
  * nc: Number of vector cols; number of matrix cols (because transposed) */
-void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
+void ggml_gemv_q4_0_4x4_q8_0(int ne, float *restrict s, size_t bs,
                              const void *restrict vx, const void *restrict vy,
-                             int nr, int nc) {
+                             int nr, int ncc) {
   /* e refers to number of elements
    * b refers to block
    * u refers to sub-blocks
@@ -678,9 +678,10 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
    * ncols_interleaved : Number of sub-blocks per block
    * blocklen : Size of a sub-block */
   const int qk = QK8_0;
-  const int bn = n / qk;
-  const int un = 4;
-  const int uz = 4;
+  const int qb = qk / 2;
+  const int bn = ne / qk;
+  const int nc = 4;
+  const int blocklen = 4;
 
   /* Can the matrix rows be evenly split into blocks? */
   assert(n % qk == 0);
@@ -692,10 +693,10 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
   UNUSED(vx);
   UNUSED(vy);
   UNUSED(nr);
-  UNUSED(nc);
+  UNUSED(ncc);
   UNUSED(bn);
-  UNUSED(un);
-  UNUSED(uz);
+  UNUSED(nc);
+  UNUSED(blocklen);
 
 #if !((defined(_MSC_VER)) && !defined(__clang__)) && defined(__aarch64__) &&   \
     defined(__ARM_NEON)
@@ -766,98 +767,51 @@ void ggml_gemv_q4_0_4x4_q8_0(int n, float *restrict s, size_t bs,
   int sumi;
 
   /* Pointer to the vector, interpreted as an array of block_q8_0 */
-  const block_q8_0 *v_ptr = (const block_q8_0 *)vy;
+  const block_q8_0 *y = (const block_q8_0 *)vy;
   /* For each matrix column (there are un sub-blocks per block, so there are nc
    * / un total blockx4s)*/
-  for (int c = 0; c < nc / un; c++) {
+  for (int ii = 0; ii < ncc / nc; ii++) {
     /* Pointer to the matrix. Since the matrix is in column-major order, this
      * points to the top of the current block-group column. Interpreted as an
      * array of block_q4_0x4s, which is a block group containing four
      * block_q4_0 */
-    const block_q4_0x4 *m_ptr = (const block_q4_0x4 *)vx + (c * bn);
+    const block_q4_0x4 *x = (const block_q4_0x4 *)vx + (ii * bn);
 
-    for (int b = 0; b < un; b++)
-      sumf[b] = 0.0;
+    for (int i = 0; i < nc; i++)
+      sumf[i] = 0.0;
 
     /* For each block in the vector/matrix row */
-    for (int b = 0; b < bn; b++) {
+    for (int k = 0; k < bn; k++) {
       /* For each vector sub-block...*/
       /* 2 * comes from the fact that there are twice as many  */
-      for (int vu = 0; vu < (qk / (2 * uz)); vu++) {
+      for (int vu = 0; vu < qb / blocklen; vu++) {
         /* For each matrix sub-block... */
         /* You can think of matrix sub-blocks as being columns */
-        for (int mu = 0; mu < un; mu++) {
+        for (int i = 0; i < nc; i++) {
           sumi = 0;
           /* For each sub-block byte... */
-          for (int off = 0; off < uz; ++off) {
+          for (int b = 0; b < blocklen; ++b) {
             /* There are two quants per matrix sub-block, so we need to get both
              */
             const int lo =
-                (int8_t)(m_ptr[b].qs[vu * uz * un + uz * mu + off] << 4);
+                (int8_t)(x[k].qs[vu * blocklen * nc + blocklen * i + b] << 4);
             const int hi =
-                (int8_t)(m_ptr[b].qs[vu * uz * un + uz * mu + off] & 0xF0);
+                (int8_t)(x[k].qs[vu * blocklen * nc + blocklen * i + b] & 0xF0);
 
             /* There is only one quant per byte for vectors */
-            sumi += ((lo * v_ptr[b].qs[vu * uz + off]) +
-                     (hi * v_ptr[b].qs[vu * uz + off + qk / 2])) >>
+            sumi += ((lo * y[k].qs[vu * blocklen + b]) +
+                     (hi * y[k].qs[vu * blocklen + b + qk / 2])) >>
                     4;
           }
-          sumf[mu] += sumi * GGML_FP16_TO_FP32(m_ptr[b].d[mu]) *
-                      GGML_FP16_TO_FP32(v_ptr[b].d);
+          sumf[i] += sumi * GGML_FP16_TO_FP32(x[k].d[i]) *
+                      GGML_FP16_TO_FP32(y[k].d);
         }
       }
     }
-    /* Assign un values of the result */
-    for (int u = 0; u < un; u++)
-      s[c * un + u] = sumf[u];
+    /* Assign values of the result */
+    for (int i = 0; i < nc; i++)
+      s[ii * nc + i] = sumf[i];
   }
-}
-
-/* GEMV. The matrix is in column-major order (mat[x][y] is column x row y)
- * n : Number of matrix cols; length of vector
- * s : Destination vector
- * bs: Number of matrix rows (unused)
- * vx: Matrix of Q4_0 elements
- * vy: Vector of Q8_0 elements
- * nr: Number of vector cols (should always be 1)
- * nc: Number of vector rows; number of matrix cols; destination len */
-void ggml_gemv_q4_0_4x4_q8_0_esp(int n, float *restrict s, size_t bs,
-                                 const void *restrict vx,
-                                 const void *restrict vy, int nr, int nc) {
-  /* e refers to elements
-   * b refers to block/chunk
-   * n refers to number of
-   * c refers to col
-   * r refers to row
-   * m refers to matrix
-   * v refers to vector
-   * d refers to dest  */
-
-  /* qk : Quantization level; number of elements per matrix and vector block
-   * nb : Number of vector blocks; number of blocks per matrix column
-   * ncols_interleaved : Number of blocks per block group; number of columns
-   *                     in a block group
-   * blocklen : Number of elements per block */
-  const int qk = QK8_0;
-  const int nb = n / qk;
-  const int bg_nb = 4;
-  const int b_ne = 4;
-
-  // assert(v_nb == v_brn)
-  /* Is the number of matrix columns a multiple of qk? */
-  assert(n % nb == 0);
-  /* Can we also make the vector block groups? */
-  assert(nc % bg_nb == 0);
-
-  UNUSED(s);
-  UNUSED(bs);
-  UNUSED(vx);
-  UNUSED(vy);
-  UNUSED(nr);
-  UNUSED(nc);
-  UNUSED(nb);
-  UNUSED(bg_nb);
-  UNUSED(b_ne);
 }
 
 void ggml_gemv_q4_0_4x8_q8_0(int n, float *restrict s, size_t bs,
