@@ -5515,47 +5515,6 @@ void ggml_vec_dot_q5_1_q8_1(int n, float * restrict s, size_t bs, const void * r
     *s = sumf;
 }
 
-/* x * y = z */
-void ggml_vec_dot_q8_0_q8_0_esp(int n, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int nrc) {
-
-    /* qk : The number of elements per block once dequantized
-     * nb : The number of blocks */
-
-    const int qk = QK8_0;
-    const int nb = n / qk;
-
-    assert(n % qk == 0);
-#if defined(__ARM_FEATURE_MATMUL_INT8)
-    assert((nrc == 2) || (nrc == 1));
-#else
-    assert(nrc == 1);
-#endif
-    UNUSED(nrc);
-    UNUSED(bx);
-    UNUSED(by);
-    UNUSED(bs);
-
-    const block_q8_0 * restrict x = vx;
-    const block_q8_0 * restrict y = vy;
-
-    float sumf = 0;
-
-    /* For each block */
-    for (int b = 0; b < nb; ++b) {
-        int sumi = 0;
-
-        /* For each quant... */
-        for (int q = 0; q < qk; q++)
-            sumi += x[b].qs[q]*y[b].qs[q];
-
-
-        sumf += sumi * (GGML_FP16_TO_FP32(x[b].d)*GGML_FP16_TO_FP32(y[b].d));
-    }
-
-    *s = sumf;
-}
-
-
 void ggml_vec_dot_q8_0_q8_0(int n, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int nrc) {
     const int qk = QK8_0;
     const int nb = n / qk;
