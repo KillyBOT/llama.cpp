@@ -582,7 +582,7 @@ endif
 
 ifdef GGML_ESP_RISCV
 	MK_CFLAGS   += -DGGML_USE_ESP_RISCV
-	MK_LDFLAGS  += -Lggml/src/esp-riscv -lesp
+	MK_LDFLAGS  += -Lggml/src/esp-riscv -lcontig -lesp -lmonitors -ltest -lutils
 	OBJ_GGML    += ggml/src/esp-riscv/esp-gemm.o
 endif # GGML_ESP_RISCV
 
