@@ -32,15 +32,19 @@ struct gemm_stratus_access {
 
 #define GEMM_STRATUS_IOC_ACCESS _IOW ('S', 0, struct gemm_stratus_access)
 
-
-#define FX_IL           34
+/* We are using fixed point */
+typedef int esp_token_t;
+typedef float esp_native_t;
+#define fx2float i32_to_f32
+#define float2fx f32_to_i32
+#define FX_IL 16
 
 #define MAX_PRINTED_ERRORS 512
 
 /* <<--params-def-->> */
 #define DO_RELU 0
 #define TRANSPOSE 1
-#define NINPUTS 2
+// #define NINPUTS 2
 // #define D3 8
 // #define D2 8
 // #define D1 8
@@ -74,7 +78,7 @@ struct gemm_stratus_access gemm_cfg_000[] = {
 		/* <<--descriptor-->> */
 		.do_relu = DO_RELU,
 		.transpose = TRANSPOSE,
-		.ninputs = NINPUTS,
+		.ninputs = 0,
 		.d3 = 0,
 		.d2 = 0,
 		.d1 = 0,

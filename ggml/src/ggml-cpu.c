@@ -278,6 +278,14 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
 //         .gemv                     = ggml_gemv_q4_0_q8_0_esp_riscv,
 //         .gemm                     = ggml_gemm_q4_0_q8_0_esp_riscv,
 // #else
+//         .vec_dot                  = ggml_vec_dot_q4_0_q8_0,
+//         .vec_dot_type             = GGML_TYPE_Q8_0,
+// #if defined (__ARM_FEATURE_MATMUL_INT8)
+//         .nrows                    = 2,
+// #else
+//         .nrows                    = 1,
+// #endif // __ARM_FEATURE_MATMUL_INT8
+// #endif // GGML_USE_ESP_RISCV
 #ifdef GGML_USE_ESP_RISCV
         .vec_dot                  = ggml_vec_dot_q4_0_q8_0_esp_riscv,
 #else
@@ -290,19 +298,6 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
         .nrows                    = 1,
 #endif
     },
-//     [GGML_TYPE_Q4_0] = {
-// #ifdef GGML_USE_ESP_RISCV
-//         .vec_dot                  = ggml_vec_dot_q4_0_q8_0_esp_riscv,
-// #else
-//         .vec_dot                  = ggml_vec_dot_q4_0_q8_0,
-// #endif
-//         .vec_dot_type             = GGML_TYPE_Q8_0,
-// #if defined (__ARM_FEATURE_MATMUL_INT8)
-//         .nrows                    = 2,
-// #else
-//         .nrows                    = 1,
-// #endif
-//     },
     [GGML_TYPE_Q4_1] = {
         .vec_dot                  = ggml_vec_dot_q4_1_q8_1,
         .vec_dot_type             = GGML_TYPE_Q8_1,
@@ -426,10 +421,11 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
         .vec_dot_type             = GGML_TYPE_Q8_0,
         .nrows                    = 1,
         .ncols                    = 4,
-        .gemv                     = ggml_gemv_q4_0_4x4_q8_0,
 #ifdef GGML_USE_ESP_RISCV
+        .gemv                     = ggml_gemv_q4_0_4x4_q8_0_esp_riscv,
         .gemm                     = ggml_gemm_q4_0_4x4_q8_0_esp_riscv,
 #else
+        .gemv                     = ggml_gemv_q4_0_4x4_q8_0,
         .gemm                     = ggml_gemm_q4_0_4x4_q8_0,
 #endif
     },

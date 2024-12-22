@@ -509,14 +509,15 @@ ifneq ($(filter loongarch64%,$(UNAME_M)),)
 	MK_CXXFLAGS += -mlasx
 endif
 
+# Removed vectors because ariane does not support them :(
 ifneq ($(filter riscv64%,$(UNAME_M)),)
-	MK_CFLAGS   += -march=rv64gcv -mabi=lp64d
-	MK_CXXFLAGS += -march=rv64gcv -mabi=lp64d
+	MK_CFLAGS   += -march=rv64gc -mabi=lp64d
+	MK_CXXFLAGS += -march=rv64gc -mabi=lp64d
 endif
 
 else # RISC-V CROSS COMPILATION
-	MK_CFLAGS   += -march=rv64gcv -mabi=lp64d
-	MK_CXXFLAGS += -march=rv64gcv -mabi=lp64d
+	MK_CFLAGS   += -march=rv64gc -mabi=lp64d
+	MK_CXXFLAGS += -march=rv64gc -mabi=lp64d
 endif
 
 ifndef GGML_NO_ACCELERATE
@@ -583,7 +584,7 @@ ifdef GGML_ESP_RISCV
 	MK_CFLAGS   += -DGGML_USE_ESP_RISCV
 	MK_LDFLAGS  += -Lggml/src/esp-riscv -lesp
 	OBJ_GGML    += ggml/src/esp-riscv/esp-gemm.o
-endif
+endif # GGML_ESP_RISCV
 
 ifndef GGML_NO_AMX
 	MK_CPPFLAGS += -DGGML_USE_AMX
