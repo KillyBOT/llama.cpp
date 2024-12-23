@@ -261,7 +261,7 @@ static inline void sw_run(esp_thread_info_t cfg[])
     }
 }
 
-void ggml_vec_dot_q4_0_q8_0_esp_riscv(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
+void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
     const int qk = QK8_0;
     const int n_b = k / qk;
 
@@ -277,8 +277,11 @@ void ggml_vec_dot_q4_0_q8_0_esp_riscv(int k, float * restrict s, size_t bs, cons
     const block_q8_0 * restrict y = vy;
 
     /* The accelerator's buffer. Contains enough room for the input vectors and the output vector*/
+#if defined(GGML_USE_ESP_TEST)
     esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b));
-    // esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
+#endif
     esp_token_t *acc_x = acc_buff; /* Location of X */
     esp_token_t *acc_y = acc_buff + k; /* Location of Y */
     esp_token_t *acc_i = acc_buff + (2 * k); /* Location of X * Y, before using deltas */
@@ -306,8 +309,11 @@ void ggml_vec_dot_q4_0_q8_0_esp_riscv(int k, float * restrict s, size_t bs, cons
     gemm_cfg_000->ld_offset2 = k;
     gemm_cfg_000->st_offset = 2 * k;
 
+#if defined(GGML_USE_ESP_TEST)
     sw_run(cfg_000);
-    // esp_run(cfg_000, NACC);
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_run(cfg_000, NACC);
+#endif
 
     /* Then, find the dot product of each block's dot product with their deltas */
     /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
@@ -339,12 +345,15 @@ void ggml_vec_dot_q4_0_q8_0_esp_riscv(int k, float * restrict s, size_t bs, cons
     // ggml_vec_dot_q4_0_q8_0(o, &sum_f, bs, vx, bx, vy, by, mn);
     // printf("Expected_result: %f\n", sum_f);
 
+#if defined(GGML_USE_ESP_TEST)
     free(acc_buff);
-    // esp_free(acc_buff);
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_free(acc_buff);
+#endif
 }
 
 // TODO: Make this not really slow...
-void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
+void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
 
     assert(k % QK_K == 0);
     assert(mn == 1);
@@ -359,8 +368,8 @@ void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs, cons
 
     const int n_sb = k / QK_K; /* Number of superblocks */
     const int qk   = 32; /* Number of dequantized elements per block */
-    const int n_b  = QK_K / qk; /* Number of blocks per superblock */
-    const int n_ub = qk / n_b;  /* Number of sub-blocks per block */
+    const int n_b  = 8; /* Number of blocks per superblock */
+    const int n_ub = 4;  /* Number of sub-blocks per block */
 
     static const uint32_t scales_mins_mask_1 = 0x3f3f3f3f;
     static const uint32_t scales_mins_mask_2 = 0x0f0f0f0f;
@@ -375,9 +384,11 @@ void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs, cons
     int8_t  x_q8[QK_K]; // Quants of superblock X
     float   sums[n_b];  // Sums of each block
 
+#if defined(GGML_USE_ESP_TEST)
     esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb));
-    // esp_token_t acc_buff[sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb)];
-
+#elif defined (GGML_USE_ESP_RISCV)
+    esp_token_t *acc_buff = (esp_token_t *)esp_alloc(sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb));
+#endif
     esp_token_t *acc_x = acc_buff;
     esp_token_t *acc_y = acc_x + k;
     esp_token_t *acc_unscaled = acc_y + k;
@@ -444,7 +455,11 @@ void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs, cons
     gemm_cfg_000->ld_offset2 = k;
     gemm_cfg_000->st_offset  = k * 2;
 
+#if defined(GGML_USE_ESP_TEST)
     sw_run(cfg_000);
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_run(cfg_000, NACC);
+#endif
 
     // printf("Second iter:[");
     // for (int l = 0; l < n_b * n_b * n_sb; l++) {
@@ -489,7 +504,11 @@ void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs, cons
 
     *s = sum_f;
 
+#if defined(GGML_USE_ESP_TEST)
     free(acc_buff);
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_free(acc_buff);
+#endif
     // printf("Finished\n");
 }
 
@@ -552,6 +571,76 @@ void ggml_vec_dot_q6_K_q8_K_esp_riscv(int o, float *restrict s, size_t bs, const
     for (int l = 0; l < 8; ++l) sumf += sums[l];
     *s = sumf;
 
+}
+
+void ggml_vec_dot_q8_0_q8_0_esp(int k, float *restrict s, size_t bs,
+                                      const void *restrict vx, size_t bx,
+                                      const void *restrict vy, size_t by,
+                                      int mn) {
+
+    const int qk = QK8_0;
+    const int n_b = k / qk;
+
+    assert(k % qk == 0);
+    assert(mn == 1);
+
+    UNUSED(mn);
+    UNUSED(bx);
+    UNUSED(by);
+    UNUSED(bs);
+
+    const block_q8_0 * restrict x = vx;
+    const block_q8_0 * restrict y = vy;
+
+    /* The accelerator's buffer. Contains enough room for the input vectors and the output vector*/
+#if defined(GGML_USE_ESP_TEST)
+    esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b));
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
+#endif
+    esp_token_t *acc_x = acc_buff; /* Location of X */
+    esp_token_t *acc_y = acc_buff + k; /* Location of Y */
+    esp_token_t *acc_i = acc_buff + (2 * k); /* Location of X * Y, before using deltas */
+
+    float sum_f = 0.0; // Final sum; used to reduce the number of times s needs to be dereferenced
+
+    for (int l = 0; l < n_b; ++l) {
+        for (int kk = 0; kk < qk; ++kk) {
+            acc_x[(l * qk) + kk] = (esp_token_t)x[l].qs[kk];
+            acc_y[(l * qk) + kk] = (esp_token_t)y[l].qs[kk];
+        }
+    }
+
+    /* Find the dot products of each block */
+    cfg_000->hw_buf = acc_buff;
+    gemm_cfg_000->transpose = 1; // Technically not needed, but still nice to include
+    gemm_cfg_000->ninputs = n_b; // We are finding n_b dot products at a time
+    gemm_cfg_000->d1 = 1;
+    gemm_cfg_000->d2 = qk; // Each dot product takes qk elements
+    gemm_cfg_000->d3 = 1;
+    gemm_cfg_000->ld_offset1 = 0;
+    gemm_cfg_000->ld_offset2 = k;
+    gemm_cfg_000->st_offset = 2 * k;
+
+#if defined(GGML_USE_ESP_TEST)
+    sw_run(cfg_000);
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_run(cfg_000, NACC);
+#endif
+
+    /* Then, find the dot product of each block's dot product with their deltas */
+    /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
+    for (int l = 0; l < n_b; l++) {
+        sum_f += acc_i[l] * GGML_FP16_TO_FP32(x[l].d) * GGML_FP16_TO_FP32(y[l].d);
+    }
+
+    *s = sum_f;
+
+#if defined(GGML_USE_ESP_TEST)
+    free(acc_buff);
+#elif defined(GGML_USE_ESP_RISCV)
+    esp_free(acc_buff);
+#endif
 }
 
 void ggml_gemv_q4_0_q8_0_esp_riscv(int o, float *restrict s, size_t bs, const void *restrict vx, const void *restrict vy, int n, int m) {

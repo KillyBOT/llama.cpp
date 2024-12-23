@@ -580,8 +580,13 @@ ifndef GGML_NO_LLAMAFILE
 	OBJ_GGML    += ggml/src/llamafile/sgemm.o
 endif
 
-ifdef GGML_ESP_RISCV
+ifdef GGML_ESP_TEST
+	MK_CFLAGS   += -DGGML_USE_ESP_TEST
+	MK_CPPFLAGS += -DGGML_USE_ESP_TEST
+	OBJ_GGML    += ggml/src/esp-riscv/esp-gemm.o
+else ifdef GGML_ESP_RISCV
 	MK_CFLAGS   += -DGGML_USE_ESP_RISCV
+	MK_CPPFLAGS += -DGGML_USE_ESP_RISCV
 	MK_LDFLAGS  += -Lggml/src/esp-riscv -lesp -lcontig -lmonitors -ltest -lutils
 	OBJ_GGML    += ggml/src/esp-riscv/esp-gemm.o
 endif # GGML_ESP_RISCV
@@ -1100,12 +1105,20 @@ ggml/src/llamafile/sgemm.o: \
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 endif # GGML_NO_LLAMAFILE
 
-ifdef GGML_ESP_RISCV
+ifdef GGML_ESP_TEST
 ggml/src/esp-riscv/esp-riscv.o: \
 	ggml/src/esp-riscv/esp-gemm.c \
-    ggml/src/esp-riscv/esp-gemm.h \
-    ggml/src/esp-riscv/esp-gemm-cfg.h \
-    ggml/src/esp-riscv/esp-acc-prints.h \
+	ggml/src/esp-riscv/esp-gemm.h \
+	ggml/src/esp-riscv/esp-gemm-cfg.h \
+	ggml/src/esp-riscv/esp-acc-prints.h \
+	ggml/include/ggml.h
+	$(CC) $(CFLAGS) -c $< -o $@
+else ifdef GGML_ESP_RISCV
+ggml/src/esp-riscv/esp-riscv.o: \
+	ggml/src/esp-riscv/esp-gemm.c \
+	ggml/src/esp-riscv/esp-gemm.h \
+	ggml/src/esp-riscv/esp-gemm-cfg.h \
+	ggml/src/esp-riscv/esp-acc-prints.h \
 	ggml/include/ggml.h
 	$(CC) $(CFLAGS) -c $< -o $@
 endif # GGML_ESP_RISCV

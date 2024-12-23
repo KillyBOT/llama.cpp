@@ -267,15 +267,18 @@ if (GGML_LLAMAFILE)
     set(GGML_SOURCES_LLAMAFILE llamafile/sgemm.cpp)
 endif()
 
-if (GGML_ESP_RISCV)
-    message(STATUS "Using ESP with RISC-V")
+if (GGML_ESP_RISCV OR GGML_ESP_TEST)
+    file(GLOB GGML_HEADERS_ESP "esp-riscv/*.h")
+    set(GGML_SOURCES_ESP esp-riscv/esp-gemm.c)
 
-    add_compile_definitions(GGML_USE_ESP_RISCV)
-
-    file(GLOB GGML_HEADERS_ESP_RISCV "esp-riscv/*.h")
-    set(GGML_SOURCES_ESP_RISCV esp-riscv/esp-gemm.c)
-
-    # TODO: Link libesp libraries here
+    if (GGML_ESP_TEST)
+        message(STATUS "Using ESP with software tests")
+        add_compile_definitions(GGML_USE_ESP_TEST)
+    elseif(GGML_ESP_RISCV)
+        message(STATUS "Using ESP with RISC_V")
+        add_compile_definitions(GGML_USE_ESP_RISCV)
+        # TODO: Link libesp libraries here
+    endif()
 endif()
 
 if (GGML_AMX)
@@ -1399,7 +1402,7 @@ add_library(ggml
             ${GGML_SOURCES_LLAMAFILE} ${GGML_HEADERS_LLAMAFILE}
             ${GGML_SOURCES_AMX}       ${GGML_HEADERS_AMX}
             ${GGML_SOURCES_CANN}      ${GGML_HEADERS_CANN}
-            ${GGML_SOURCES_ESP_RISCV} ${GGML_HEADERS_ESP_RISCV}
+            ${GGML_SOURCES_ESP}       ${GGML_HEADERS_ESP}
             ggml-aarch64.c            ggml-aarch64.h
             )
 

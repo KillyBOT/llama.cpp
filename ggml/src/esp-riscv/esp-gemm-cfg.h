@@ -22,8 +22,6 @@ struct gemm_stratus_access {
 	unsigned dst_offset;
 };
 
-#define GEMM_STRATUS_IOC_ACCESS _IOW ('S', 0, struct gemm_stratus_access)
-
 /* We are using fixed point */
 typedef int esp_token_t;
 typedef float esp_native_t;
@@ -33,6 +31,7 @@ typedef float esp_native_t;
 
 #define MAX_PRINTED_ERRORS 512
 
+// Only one accumulator for now...
 #define NACC 1
 #define ACC_TLB_ENTRIES 128
 #define ACC_PAGE_SIZE (1 << 20)
@@ -65,6 +64,8 @@ struct gemm_stratus_access gemm_cfg_000[] = {
 		.dst_offset = 0,
 	}
 };
+
+#define GEMM_STRATUS_IOC_ACCESS _IOW('S', 0, struct gemm_stratus_access)
 
 esp_thread_info_t cfg_000[] = {
 	{

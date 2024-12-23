@@ -45,7 +45,7 @@
 #include <llamafile/sgemm.h>
 #endif
 
-#ifdef GGML_USE_ESP_RISCV
+#if defined(GGML_USE_ESP_TEST) || defined(GGML_USE_ESP_RISCV)
 #include <esp-riscv/esp-gemm.h>
 #endif
 
@@ -286,8 +286,8 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
 //         .nrows                    = 1,
 // #endif // __ARM_FEATURE_MATMUL_INT8
 // #endif // GGML_USE_ESP_RISCV
-#ifdef GGML_USE_ESP_RISCV
-        .vec_dot                  = ggml_vec_dot_q4_0_q8_0_esp_riscv,
+#if defined(GGML_USE_ESP_TEST) || defined(GGML_USE_ESP_RISCV)
+        .vec_dot                  = ggml_vec_dot_q4_0_q8_0_esp,
 #else
         .vec_dot                  = ggml_vec_dot_q4_0_q8_0,
 #endif
@@ -329,7 +329,11 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
     },
     [GGML_TYPE_Q8_0] = {
         .from_float_to_mat        = quantize_mat_q8_0,
+#if defined(GGML_USE_ESP_TEST) || defined(GGML_USE_ESP_RISCV)
+        .vec_dot                  = ggml_vec_dot_q8_0_q8_0_esp,
+#else
         .vec_dot                  = ggml_vec_dot_q8_0_q8_0,
+#endif
         .vec_dot_type             = GGML_TYPE_Q8_0,
 #if defined (__ARM_FEATURE_MATMUL_INT8)
         .nrows                    = 2,
@@ -352,8 +356,8 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
         .nrows                    = 1,
     },
     [GGML_TYPE_Q4_K] = {
-#ifdef GGML_USE_ESP_RISCV
-        .vec_dot                  = ggml_vec_dot_q4_K_q8_K_esp_riscv,
+#if defined(GGML_USE_ESP_TEST) || defined(GGML_USE_ESP_RISCV)
+        .vec_dot                  = ggml_vec_dot_q4_K_q8_K_esp,
 #else
         .vec_dot                  = ggml_vec_dot_q4_K_q8_K,
 #endif
@@ -425,13 +429,15 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
         .vec_dot_type             = GGML_TYPE_Q8_0,
         .nrows                    = 1,
         .ncols                    = 4,
-#ifdef GGML_USE_ESP_RISCV
-        .gemv                     = ggml_gemv_q4_0_4x4_q8_0_esp_riscv,
-        .gemm                     = ggml_gemm_q4_0_4x4_q8_0_esp_riscv,
-#else
         .gemv                     = ggml_gemv_q4_0_4x4_q8_0,
         .gemm                     = ggml_gemm_q4_0_4x4_q8_0,
-#endif
+// #ifdef GGML_USE_ESP_RISCV
+//         .gemv                     = ggml_gemv_q4_0_4x4_q8_0_esp_riscv,
+//         .gemm                     = ggml_gemm_q4_0_4x4_q8_0_esp_riscv,
+// #else
+//         .gemv                     = ggml_gemv_q4_0_4x4_q8_0,
+//         .gemm                     = ggml_gemm_q4_0_4x4_q8_0,
+// #endif
     },
     [GGML_TYPE_Q4_0_4_8] = {
         .vec_dot                  = NULL,
