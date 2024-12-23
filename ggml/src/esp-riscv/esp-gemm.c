@@ -280,7 +280,9 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 #if defined(GGML_USE_ESP_TEST)
     esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b));
 #elif defined(GGML_USE_ESP_RISCV)
+    printf("esp_alloc...");
     esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
+    printf("finished\n");
 #endif
     esp_token_t *acc_x = acc_buff; /* Location of X */
     esp_token_t *acc_y = acc_buff + k; /* Location of Y */
@@ -312,7 +314,10 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 #if defined(GGML_USE_ESP_TEST)
     sw_run(cfg_000);
 #elif defined(GGML_USE_ESP_RISCV)
+    printf("esp_run...");
+    print_gemm_cfg(cfg_000, gemm_cfg_000-);
     esp_run(cfg_000, NACC);
+    printf("finished\n");
 #endif
 
     /* Then, find the dot product of each block's dot product with their deltas */
@@ -348,7 +353,9 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 #if defined(GGML_USE_ESP_TEST)
     free(acc_buff);
 #elif defined(GGML_USE_ESP_RISCV)
+    printf("esp_free...");
     esp_free(acc_buff);
+    printf("finished\n");
 #endif
 }
 
