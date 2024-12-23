@@ -3,12 +3,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "fixed-point.h"
-
-// [humu]: esp_accelerator.h
+// esp_accelerator.h
 enum accelerator_coherence {ACC_COH_NONE = 0, ACC_COH_LLC, ACC_COH_RECALL, ACC_COH_FULL, ACC_COH_AUTO};
 
-// [humu]: contig_alloc.h
+// contig_alloc.h
 struct contig_khandle_struct {
 	char unused;
 };
@@ -20,7 +18,7 @@ enum contig_alloc_policy {
 	CONTIG_ALLOC_BALANCED,
 };
 
-
+// esp.h
 struct esp_access {
 	contig_khandle_t contig;
 	uint8_t run;
@@ -34,6 +32,8 @@ struct esp_access {
 	unsigned int in_place;
 	unsigned int reuse_factor;
 };
+
+// libesp.h
 
 typedef struct esp_accelerator_thread_info {
 	bool run;
@@ -57,7 +57,6 @@ void *esp_alloc(size_t size);
 void esp_run(esp_thread_info_t cfg[], unsigned nacc);
 unsigned long long esp_run_no_print(esp_thread_info_t cfg[], unsigned nacc);
 void esp_free(void *buf);
-void esp_dummy(int dummy);
 
 #ifdef __cplusplus
 }

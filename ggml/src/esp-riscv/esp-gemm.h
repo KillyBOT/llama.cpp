@@ -2,16 +2,28 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <linux/ioctl.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void ggml_vec_dot_q4_0_q8_0_esp_riscv(int o, float *restrict s, size_t bs,
+void ggml_vec_dot_q4_0_q8_0_esp_riscv(int k, float *restrict s, size_t bs,
                                       const void *restrict vx, size_t bx,
                                       const void *restrict vy, size_t by,
                                       int mn);
+void ggml_vec_dot_q8_0_q8_0_esp_riscv(int k, float *restrict s, size_t bs,
+                                      const void *restrict vx, size_t bx,
+                                      const void *restrict vy, size_t by,
+                                      int mn);
+void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs,
+                            const void * restrict vx, size_t bx,
+                            const void * restrict vy, size_t by,
+                            int mn);
+void ggml_vec_dot_q6_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs,
+                            const void * restrict vx, size_t bx,
+                            const void * restrict vy, size_t by,
+                            int mn);
+
 void ggml_gemv_q4_0_4x4_q8_0_esp_riscv(int o, float *restrict s, size_t bs,
                              const void *restrict vx, const void *restrict vy,
                              int n, int m);

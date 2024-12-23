@@ -53,12 +53,12 @@
  * @param Ctype is GGML data type of `C`
  * @return true if this function was able to service the matmul request
  */
-// bool esp_riscv_gemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda,
-//                     const void *B, int64_t ldb, void *C, int64_t ldc, int ith,
+// bool esp_riscv_gemm(int64_t m, int64_t n, int64_t o, const void *vA, int64_t lda,
+//                     const void *vB, int64_t ldb, void *vC, int64_t ldc, int ith,
 //                     int nth, int Atype, int Btype, int Ctype) {
 //
 //     size_t src0_len, src1_len, dest_len, src0_size, src1_size, dest_size;
-//     float *accel_buf;
+//     float *acc_buff;
 //     float *aqk, *bqk, *cqk;
 //
 //     assert(m >= 0);
@@ -81,12 +81,69 @@
 //         if (Btype != GGML_TYPE_Q8_0)
 //             return false;
 //
-//         src0_len = m * k;
-//         src1_len = k * n;
+//         src0_len = m * o;
+//         src1_len = o * n;
 //         dest_len = m * n;
 //         src0_size = src0_len * sizeof(float);
 //         src1_size = src1_len * sizeof(float);
 //         dest_size = dest_len * sizeof(float);
+//
+//         const block_q4_0 *restrict A = vA;
+//         const block_q8_0 *restrict B = vB;
+//         float *restrict C = vC;
+//         // const int qk = QK8_0;
+//         float sum_f;
+//
+//         float A_buff[o * QK4_0];
+//         float B_buff[o * QK8_0];
+//
+//         // for (int k = 0; k < o; k++) {
+//         //     sum_f = 0.0;
+//         //     for (int j = 0; j < n; j++) {
+//         //         for (int i = 0; i < m; i++) {
+//         //             dequantize_row_q4_0(A + (lda * i) + k, A_buff, QK4_0);
+//         //             dequantize_row_q8_0(B + (ldb * j) + k, B_buff, QK8_0);
+//         //
+//         //         }
+//         //     }
+//         // }
+//
+//         for (int j = 0; j < n; j++) {
+//             const block_q8_0 *restrict Bj = B + (j * ldb);
+//             dequantize_row_q8_0(Bj, B_buff, o * QK8_0);
+//
+//             for (int i = 0; i < m; i++) {
+//                 const block_q4_0 *restrict Ai = A + (i * lda);
+//
+//                 dequantize_row_q4_0(Ai, A_buff, o * QK4_0);
+//                 //
+//                 // printf("Ai: [");
+//                 // for (int k = 0; k < o; k++) {
+//                 //     printf(k == 0 ? "%f" : " %f", A_buff[k]);
+//                 // }
+//                 // printf("]\n");
+//
+//                 sum_f = 0.0;
+//                 for (int k = 0; k < o * QK8_0; k++) {
+//                     sum_f += A_buff[k] * B_buff[k];
+//                 }
+//                 // for (int k = 0; k < o / qk; k++) {
+//                 //
+//                 //     sumi_lo = 0;
+//                 //     sumi_hi = 0;
+//                 //     for (int kk = 0; kk < qk; kk++) {
+//                 //         const int lo = (Ai[k].qs[kk] & 0x0F) - 8;
+//                 //         const int hi = (Ai[k].qs[kk] >>   4) - 8;
+//                 //
+//                 //         sumi_lo += lo * Bj[k].qs[kk];
+//                 //         sumi_hi += hi * Bj[k].qs[kk + (qk / 2)];
+//                 //     }
+//                 //     sum_f += (sumi_lo + sumi_hi) * GGML_FP16_TO_FP32(Ai[k].d) * GGML_FP16_TO_FP32(Bj[k].d);
+//                 // }
+//
+//                 C[(j * ldc) + i] = sum_f;
+//             }
+//         }
 //
 //         /* Allocate a buffer for the accelerator. For now, just make it max size */
 //         // accel_buf = (token_t *)esp_alloc(MAX_SIZE);
@@ -106,36 +163,36 @@
 //         // aqk = accel_buf;
 //         // bqk = accel_buf + src0_len;
 //
-//         int64_t m_tiles = m / RM;
-//         int64_t n_tiles = n / RN;
-//         int64_t tiles = n_tiles * m_tiles;
-//         int64_t duty = (tiles + nth - 1) / nth;
-//         int64_t start_tile = duty * ith;
-//         int64_t end_tile = start_tile + duty;
-//         if (end_tile > tiles)
-//             end_tile = tiles;
-//         for (int64_t tile = start_tile; tile < end_tile; ++tile) {
-//             int64_t i = tile / n_tiles * RM;
-//             int64_t j = tile % n_tiles * RN;
-//             float CC[RN][RM] = {};
-//             for (int64_t l = 0; l < k; ++l) {
-//                 for (int64_t jj = 0; jj < RN; ++jj) {
-//                     for (int64_t ii = 0; ii < RM; ++ii) {
-//                         CC[jj][ii] =
-//                     }
-//                 }
-//             }
-//
-//             for (int64_t jj = 0; jj < RN; ++jj) {
-//                 for (int64_t ii = 0; ii < RM; ++ii) {
-//                     ((float *)C)[(ldc * (jj + j)) + (ii + i)] = CC[j][i];
-//                 }
-//             }
-//         }
+//         // int64_t m_tiles = m / RM;
+//         // int64_t n_tiles = n / RN;
+//         // int64_t tiles = n_tiles * m_tiles;
+//         // int64_t duty = (tiles + nth - 1) / nth;
+//         // int64_t start_tile = duty * ith;
+//         // int64_t end_tile = start_tile + duty;
+//         // if (end_tile > tiles)
+//         //     end_tile = tiles;
+//         // for (int64_t tile = start_tile; tile < end_tile; ++tile) {
+//         //     int64_t i = (tile / n_tiles) * RM;
+//         //     int64_t j = (tile % n_tiles) * RN;
+//         //     float CC[RN][RM] = {};
+//         //     for (int64_t k = 0; k < o; ++k) {
+//         //         for (int64_t jj = 0; jj < RN; ++jj) {
+//         //             for (int64_t ii = 0; ii < RM; ++ii) {
+//         //                 CC[jj][ii] =
+//         //             }
+//         //         }
+//         //     }
+//         //
+//         //     for (int64_t jj = 0; jj < RN; ++jj) {
+//         //         for (int64_t ii = 0; ii < RM; ++ii) {
+//         //             ((float *)C)[(ldc * (jj + j)) + (ii + i)] = CC[j][i];
+//         //         }
+//         //     }
+//         // }
 //         //
 //         // esp_free(accel_buf);
 //
-//         return false;
+//         return true;
 //     }
 //
 //     default:
@@ -146,12 +203,12 @@
 //     * never used */
 //     (void)m;
 //     (void)n;
-//     (void)k;
-//     (void)A;
+//     (void)o;
+//     (void)vA;
 //     (void)lda;
-//     (void)B;
+//     (void)vB;
 //     (void)ldb;
-//     (void)C;
+//     (void)vC;
 //     (void)ldc;
 //     (void)ith;
 //     (void)nth;
@@ -162,7 +219,8 @@
 
 /* Just a copy of the hardware accelerator's GEMM procedure, to verify everything works */
 /* On the actual hardware, this should not be used */
-static void sw_run(int *acc_buff)
+/* The inlining is stupid I know, but since this is called so frequently it makes sense to */
+static inline void sw_run(esp_thread_info_t cfg[])
 {
     esp_token_t accum;
 
@@ -171,14 +229,16 @@ static void sw_run(int *acc_buff)
     const unsigned int o = gemm_cfg_000->d2;
     const unsigned int n = gemm_cfg_000->d3;
     const unsigned int transpose = gemm_cfg_000->transpose;
-    esp_token_t *As = &acc_buff[gemm_cfg_000->ld_offset1];
-    esp_token_t *Bs = &acc_buff[gemm_cfg_000->ld_offset2];
-    esp_token_t *Cs = &acc_buff[gemm_cfg_000->st_offset];
+
+    esp_token_t *hw_buf = cfg[0].hw_buf;
+    const esp_token_t *As = &hw_buf[gemm_cfg_000->ld_offset1];
+    const esp_token_t *Bs = &hw_buf[gemm_cfg_000->ld_offset2];
+    esp_token_t *Cs = &hw_buf[gemm_cfg_000->st_offset];
 
     for (unsigned int job = 0; job < jobs; ++job)
     {
-        esp_token_t *A = &As[job * m * o];
-        esp_token_t *B = &Bs[job * o * n];
+        const esp_token_t *A = &As[job * m * o];
+        const esp_token_t *B = &Bs[job * o * n];
         esp_token_t *C = &Cs[job * m * n];
 
         for (unsigned int i = 0; i < m; ++i)
@@ -201,16 +261,13 @@ static void sw_run(int *acc_buff)
     }
 }
 
-void ggml_vec_dot_q4_0_q8_0_esp_riscv(int o, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
+void ggml_vec_dot_q4_0_q8_0_esp_riscv(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
     const int qk = QK8_0;
-    const int nb = o / qk;
+    const int n_b = k / qk;
 
-    assert(o % qk == 0);
-#if defined(__ARM_FEATURE_MATMUL_INT8)
-    assert((nrc == 2) || (nrc == 1));
-#else
+    assert(k % qk == 0);
     assert(mn == 1);
-#endif
+
     UNUSED(mn);
     UNUSED(bx);
     UNUSED(by);
@@ -218,75 +275,46 @@ void ggml_vec_dot_q4_0_q8_0_esp_riscv(int o, float * restrict s, size_t bs, cons
 
     const block_q4_0 * restrict x = vx;
     const block_q8_0 * restrict y = vy;
-    esp_token_t *acc_buff;
-    esp_token_t *acc_x;
-    esp_token_t *acc_y;
-    esp_token_t *acc_i;
-    esp_token_t *acc_s;
 
-    int sum_i; // Intermediate sum
-    float sum_f = 0.0; // Final sum
+    /* The accelerator's buffer. Contains enough room for the input vectors and the output vector*/
+    esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b));
+    // esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
+    esp_token_t *acc_x = acc_buff; /* Location of X */
+    esp_token_t *acc_y = acc_buff + k; /* Location of Y */
+    esp_token_t *acc_i = acc_buff + (2 * k); /* Location of X * Y, before using deltas */
 
-    // float xb[QK4_0];
-    // float yb[QK8_0];
-    //
-    // for (int k = 0; k < nb; k++) {
-    //     dequantize_row_q4_0(x + k, xb, QK4_0);
-    //     dequantize_row_q8_0(y + k, yb, QK8_0);
-    //     for (int kk = 0; kk < qk; kk++) {
-    //         sum_f += xb[kk] * yb[kk];
-    //     }
-    // }
-    // *s = sum_f;
+    float sum_f = 0.0; // Final sum; used to reduce the number of times s needs to be dereferenced
 
-    // for (k = 0; k < nb; ++k) {
-    //     sum_i = 0;
-    //
-    //     for (kk = 0; kk < qk / 2; ++kk) {
-    //         const int lo = (x[k].qs[kk] & 0x0F) - 8;
-    //         const int hi = (x[k].qs[kk] >>   4) - 8;
-    //
-    //         sum_i += (lo * y[k].qs[kk]) + (hi * y[k].qs[kk + (qk / 2)]);
-    //     }
-    //
-    //     sum_f += sum_i * GGML_FP16_TO_FP32(x[k].d) * GGML_FP16_TO_FP32(y[k].d);
-    // }
-
-    acc_buff = esp_alloc(sizeof(esp_token_t) * (o + o + nb + nb + 1));
-    cfg_000->hw_buf = acc_buff;
-    // acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (o + o + nb + nb + 1));
-    acc_x = acc_buff;
-    acc_y = acc_x + o;
-    acc_i = acc_y + o;
-    acc_s = acc_i + nb;
-
-    for (int k = 0; k < nb; ++k) {
-        for (int kk = 0; kk < qk / 2; ++kk) {
-            acc_x[(k * qk) + kk] =            (x[k].qs[kk] & 0x0F) - 8;
-            acc_x[(k * qk) + kk + (qk / 2)] = (x[k].qs[kk] >> 4) - 8;
-            acc_y[(k * qk) + kk] =             y[k].qs[kk];
-            acc_y[(k * qk) + kk + (qk / 2)] =  y[k].qs[kk + (qk / 2)];
+    for (int l = 0; l < n_b; ++l) {
+        for (int ll = 0; ll < qk / 2; ++ll) {
+            acc_x[(l * qk) + ll] =            (x[l].qs[ll] & 0x0F) - 8;
+            acc_x[(l * qk) + ll + (qk / 2)] = (x[l].qs[ll] >>   4) - 8;
+        }
+        for (int kk = 0; kk < qk; ++kk) {
+            acc_y[(l * qk) + kk] = (esp_token_t)y[l].qs[kk];
         }
     }
 
     /* Find the dot products of each block */
-    gemm_cfg_000[0].transpose = 1; // Technically not needed, but still nice to include
-    gemm_cfg_000[0].ninputs = nb; // Number of inputs == number of blocks
-    gemm_cfg_000[0].d1 = 1;
-    gemm_cfg_000[0].d2 = qk;
-    gemm_cfg_000[0].d3 = 1;
-    gemm_cfg_000[0].ld_offset1 = 0;
-    gemm_cfg_000[0].ld_offset2 = o;
-    gemm_cfg_000[0].st_offset = o + o;
+    cfg_000->hw_buf = acc_buff;
+    gemm_cfg_000->transpose = 1; // Technically not needed, but still nice to include
+    gemm_cfg_000->ninputs = n_b; // We are finding n_b dot products at a time
+    gemm_cfg_000->d1 = 1;
+    gemm_cfg_000->d2 = qk; // Each dot product takes qk elements
+    gemm_cfg_000->d3 = 1;
+    gemm_cfg_000->ld_offset1 = 0;
+    gemm_cfg_000->ld_offset2 = k;
+    gemm_cfg_000->st_offset = 2 * k;
 
-    // sw_run(acc_buff);
-    esp_run(cfg_000, NACC);
+    sw_run(cfg_000);
+    // esp_run(cfg_000, NACC);
 
     /* Then, find the dot product of each block's dot product with their deltas */
-    /* Not only do floats lose precision, the number of blocks is usually quite low, so it's probably okay to just do this */
-    for (int k = 0; k < nb; k++) {
-        sum_f += acc_i[k] * GGML_FP16_TO_FP32(x[k].d) * GGML_FP16_TO_FP32(y[k].d);
+    /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
+    for (int l = 0; l < n_b; l++) {
+        sum_f += acc_i[l] * GGML_FP16_TO_FP32(x[l].d) * GGML_FP16_TO_FP32(y[l].d);
     }
+
     *s = sum_f;
 
     // printf("X:[");
@@ -307,12 +335,223 @@ void ggml_vec_dot_q4_0_q8_0_esp_riscv(int o, float * restrict s, size_t bs, cons
     // }
     // printf("]\n");
     // printf("Final result: %f\n", sum_f);
-
+    //
     // ggml_vec_dot_q4_0_q8_0(o, &sum_f, bs, vx, bx, vy, by, mn);
     // printf("Expected_result: %f\n", sum_f);
 
-    // free(acc_buff);
-    esp_free(acc_buff);
+    free(acc_buff);
+    // esp_free(acc_buff);
+}
+
+// TODO: Make this not really slow...
+void ggml_vec_dot_q4_K_q8_K_esp_riscv(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
+
+    assert(k % QK_K == 0);
+    assert(mn == 1);
+
+    UNUSED(mn);
+    UNUSED(bx);
+    UNUSED(by);
+    UNUSED(bs);
+
+    const block_q4_K * restrict x = vx;
+    const block_q8_K * restrict y = vy;
+
+    const int n_sb = k / QK_K; /* Number of superblocks */
+    const int qk   = 32; /* Number of dequantized elements per block */
+    const int n_b  = QK_K / qk; /* Number of blocks per superblock */
+    const int n_ub = qk / n_b;  /* Number of sub-blocks per block */
+
+    static const uint32_t scales_mins_mask_1 = 0x3f3f3f3f;
+    static const uint32_t scales_mins_mask_2 = 0x0f0f0f0f;
+    static const uint32_t scales_mins_mask_3 = 0x03030303;
+
+    float sum_f = 0.0; // Final sum; used to reduce the number of times s needs to be dereferenced
+
+    uint32_t scales_mins[4];
+    const uint8_t *scales = (const uint8_t*)&scales_mins[0];
+    const uint8_t *mins   = (const uint8_t*)&scales_mins[2];
+
+    int8_t  x_q8[QK_K]; // Quants of superblock X
+    float   sums[n_b];  // Sums of each block
+
+    esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb));
+    // esp_token_t acc_buff[sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb)];
+
+    esp_token_t *acc_x = acc_buff;
+    esp_token_t *acc_y = acc_x + k;
+    esp_token_t *acc_unscaled = acc_y + k;
+    esp_token_t *acc_scales = acc_unscaled + (n_b * n_b * n_sb);
+    esp_token_t *acc_scaled = acc_scales + (n_b * n_b * n_sb);
+
+    /* For each superblock...*/
+    for (int sb = 0; sb < n_sb; ++sb) {
+
+        /* Fetch the current scales and mins and dequantize */
+        memcpy(scales_mins, x[sb].scales, K_SCALE_SIZE);
+        scales_mins[3] = ((scales_mins[2] >> 4) & scales_mins_mask_2) | (((scales_mins[1] >> 6) & scales_mins_mask_3) << 4);
+        const uint32_t tmp = scales_mins[1] & scales_mins_mask_1;
+        scales_mins[1] = (scales_mins[2] & scales_mins_mask_2) | (((scales_mins[0] >> 6) & scales_mins_mask_3) << 4);
+        scales_mins[2] = tmp;
+        scales_mins[0] &= scales_mins_mask_1;
+
+        /* Extract quants of X */
+        const uint8_t * restrict x_q4 = x[sb].qs;
+        for (int b = 0; b < n_b / 2; b++) {
+            for (int q = 0; q < qk; ++q) {
+                x_q8[(b * qk * 2) + q]      = (int8_t)(x_q4[(b * qk) + q] & 0xF);
+                x_q8[(b * qk * 2) + q + qk] = (int8_t)(x_q4[(b * qk) + q] >>  4);
+            }
+        }
+
+        const int8_t *restrict y_q8 = y[sb].qs;
+        for (int b = 0; b < n_b; ++b) {
+            for (int ub = 0; ub < n_ub; ub++) {
+                /* Then, multiply by scales */
+                for (int d = 0; d < n_b; ++d) {
+                    acc_x[(sb * QK_K) + (d * qk) + (b * n_ub) + ub] = (esp_token_t)x_q8[(b * qk) + (ub * n_b) + d];
+                    acc_y[(sb * QK_K) + (d * qk) + (b * n_ub) + ub] = (esp_token_t)y_q8[(b * qk) + (ub * n_b) + d];
+                }
+            }
+            for (int d = 0; d < n_b; d++) {
+                acc_scales[(sb * n_b * n_b) + (d * n_b) + b] = scales[b];
+            }
+        }
+
+        /* Subtract min deltas while we are aware of the mins */
+        int sums_b = 0;
+        for (int b = 0; b < n_b * 2; ++b) {
+            sums_b += y[sb].bsums[b] * mins[b/2];
+        }
+        const float delta_min = GGML_FP16_TO_FP32(x[sb].dmin) * y[sb].d;
+        sum_f -= delta_min * sums_b;
+    }
+
+    // printf("First iter:[");
+    // for (int l = 0; l < k; l++) {
+    //     printf("(%d * %d) ", acc_x[l], acc_y[l]);
+    // }
+    // printf("]\n");
+
+    /* First run: Calculate the non-scaled dot products */
+    cfg_000->hw_buf = acc_buff;
+    gemm_cfg_000->transpose = 1; // Technically not needed, but still nice to include
+    gemm_cfg_000->ninputs = n_b * n_b * n_sb; // # of inputs = # of blocks * # of dot products
+    gemm_cfg_000->d1 = 1;
+    gemm_cfg_000->d2 = n_ub;
+    gemm_cfg_000->d3 = 1;
+    gemm_cfg_000->ld_offset1 = 0;
+    gemm_cfg_000->ld_offset2 = k;
+    gemm_cfg_000->st_offset  = k * 2;
+
+    sw_run(cfg_000);
+
+    // printf("Second iter:[");
+    // for (int l = 0; l < n_b * n_b * n_sb; l++) {
+    //     printf("(%d * %d) ", acc_unscaled[l], acc_scales[l]);
+    // }
+    // printf("]\n");
+
+
+    /* Second run: Calculate the scaled dot products */
+    gemm_cfg_000->transpose = 1;
+    gemm_cfg_000->ninputs = n_b * n_sb;
+    gemm_cfg_000->d1 = 1;
+    gemm_cfg_000->d2 = n_b;
+    gemm_cfg_000->d3 = 1;
+    gemm_cfg_000->ld_offset1 = k * 2;
+    gemm_cfg_000->ld_offset2 = k * 2 + n_b * n_b * n_sb;
+    gemm_cfg_000->st_offset  = k * 2 + n_b * n_b * n_sb * 2;
+
+    sw_run(cfg_000);
+
+    /*printf("Scaled dot products:[");*/
+    /*for (int l = 0; l < n_b * n_sb; l++) {*/
+    /*    printf("%d (%d) ", acc_scaled[l], dots[l]);*/
+    /*}*/
+    /*printf("]\n");*/
+
+    /* Set all sums to 0 */
+    memset(sums, 0, n_b*sizeof(float));
+
+    for (int sb = 0; sb < n_sb; ++sb) {
+
+        /* Multiply answers by deltas */
+        const float delta = GGML_FP16_TO_FP32(x[sb].d) * y[sb].d;
+        for (int b = 0; b < n_b; ++b) {
+            sums[b] += delta * acc_scaled[(sb * n_b) + b];
+        }
+    }
+
+    for (int b = 0; b < n_b; ++b) {
+        sum_f += sums[b];
+    }
+
+    *s = sum_f;
+
+    free(acc_buff);
+    // printf("Finished\n");
+}
+
+// TODO: Utilize the accelerator here
+void ggml_vec_dot_q6_K_q8_K_esp_riscv(int o, float *restrict s, size_t bs, const void *restrict vx, size_t bx, const void *restrict vy, size_t by, int mn) {
+    assert(o % QK_K == 0);
+    assert(mn == 1);
+    UNUSED(mn);
+    UNUSED(bx);
+    UNUSED(by);
+    UNUSED(bs);
+
+    const block_q6_K * restrict x = vx;
+    const block_q8_K * restrict y = vy;
+
+    const int n_sb = o / QK_K;
+    // const int n_b = QK_K / 32;
+
+    int8_t  x_qs[QK_K];
+    int16_t dots_unscaled[8];
+    int32_t dots_scaled[8];
+    float   sums [8];
+    memset(sums, 0, 8*sizeof(float));
+
+    float sumf = 0;
+    for (int i = 0; i < n_sb; ++i) {
+        const uint8_t * restrict x_ql = x[i].ql;
+        const uint8_t * restrict x_qh = x[i].qh;
+        const  int8_t * restrict y_qs = y[i].qs;
+
+        int8_t * restrict x_qs_it = x_qs;
+        for (int j = 0; j < QK_K; j += 128) {
+            for (int l = 0; l < 32; ++l) {
+                x_qs_it[l +  0] = (int8_t)((x_ql[l +  0] & 0xF) | (((x_qh[l] >> 0) & 3) << 4)) - 32;
+                x_qs_it[l + 32] = (int8_t)((x_ql[l + 32] & 0xF) | (((x_qh[l] >> 2) & 3) << 4)) - 32;
+                x_qs_it[l + 64] = (int8_t)((x_ql[l +  0] >>  4) | (((x_qh[l] >> 4) & 3) << 4)) - 32;
+                x_qs_it[l + 96] = (int8_t)((x_ql[l + 32] >>  4) | (((x_qh[l] >> 6) & 3) << 4)) - 32;
+            }
+            x_qs_it += 128;
+            x_ql += 64;
+            x_qh += 32;
+        }
+
+        memset(dots_scaled, 0, 8*sizeof(int32_t));
+        x_qs_it = x_qs;
+        for (int j = 0; j < QK_K/16; ++j) {
+            int scale = x[i].scales[j];
+            for (int l = 0; l < 8; ++l) dots_unscaled[l] = y_qs[l] * x_qs_it[l];
+            for (int l = 0; l < 8; ++l) dots_scaled[l] += scale * dots_unscaled[l];
+            y_qs += 8; x_qs_it += 8;
+            for (int l = 0; l < 8; ++l) dots_unscaled[l] = y_qs[l] * x_qs_it[l];
+            for (int l = 0; l < 8; ++l) dots_scaled[l] += scale * dots_unscaled[l];
+            y_qs += 8; x_qs_it += 8;
+        }
+        const float d = GGML_FP16_TO_FP32(x[i].d) * y[i].d;
+        for (int l = 0; l < 8; ++l) {
+            sums[l] += d * dots_scaled[l];
+        }
+    }
+    for (int l = 0; l < 8; ++l) sumf += sums[l];
+    *s = sumf;
+
 }
 
 void ggml_gemv_q4_0_q8_0_esp_riscv(int o, float *restrict s, size_t bs, const void *restrict vx, const void *restrict vy, int n, int m) {
@@ -331,64 +570,40 @@ void ggml_gemv_q4_0_q8_0_esp_riscv(int o, float *restrict s, size_t bs, const vo
     UNUSED(m);
     UNUSED(nb);
 
-    // float xb[QK4_0];
-    // float y_buff[QK8_0];
-    // float *xb = malloc(sizeof(float) * o);
-    // float *yb = malloc(sizeof(float) * o);
-    //
-    // assert(xb != NULL);
-    // assert(yb != NULL);
+    int sum_i;
+    float sum_f;
 
-    int sumi_lo;
-    int sumi_hi;
-    float sumf;
+    const block_q8_0 * restrict y = (const block_q8_0 *)vy;
 
-    const block_q8_0 *y = (const block_q8_0 *)vy;
-
-    // for (int b = 0; b < nb; b++) {
-    //     const float d = GGML_FP16_TO_FP32(y[b].d);
-    //     if (d < 1.0)
-    //         printf("%d: %f\n", b, d);
+    // printf("Y: [");
+    // for (int k = 0; k < nb; k++) {
+    //     printf("\t%d [%f] [", k, y[k].d);
+    //     for (int kk = 0; kk < qk; kk++) {
+    //         printf(kk == 0 ? "%d" : " %d", y[k].qs[kk]);
+    //     }
+    //     printf("]\n");
     // }
-
-    // dequantize_row_q8_0(y, yb, o);
-
-    // for (int k = 0; k < o; k++) {
-    //     if (k == 0) printf("[0:%f", yb[k]);
-    //     else if (k == (o - 1)) printf(", %d:%f]\n", o-1, yb[k]);
-    //     else printf(", %d:%f", k, yb[k]);
-    // }
-    //
-    // for (int b = 0; b < nb; b++) {
-    //     printf("%f\n", GGML_FP16_TO_FP32(y[b].d));
-    // }
-    //
+    // printf("]\n");
 
     for (int i = 0; i < m; i++) {
-        const block_q4_0 *x = (const block_q4_0 *)vx + (i * nb);
+        const block_q4_0 * restrict x = (const block_q4_0 *)vx + (i * nb);
 
-        sumf = 0.0;
+        sum_f = 0.0;
 
         for (int k = 0; k < nb; k++) {
 
-            sumi_lo = 0;
-            sumi_hi = 0;
+            sum_i = 0;
             for (int kk = 0; kk < qk; kk++) {
                 const int lo = (x[k].qs[kk] & 0x0F) - 8;
                 const int hi = (x[k].qs[kk] >>   4) - 8;
 
-                sumi_lo += lo * y[k].qs[kk];
-                sumi_hi += hi * y[k].qs[kk + (qk / 2)];
+                sum_i+= (lo * y[k].qs[kk]) + (hi * y[k].qs[kk + (qk / 2)]);
             }
-            sumf += (sumi_lo + sumi_hi) * GGML_FP16_TO_FP32(x[k].d) * GGML_FP16_TO_FP32(y[k].d);
+            sum_f += sum_i * GGML_FP16_TO_FP32(x[k].d) * GGML_FP16_TO_FP32(y[k].d);
         }
 
-        s[i] = sumf;
+        s[i] = sum_f;
     }
-
-    // free(xb);
-    // free(yb);
-
 }
 
 

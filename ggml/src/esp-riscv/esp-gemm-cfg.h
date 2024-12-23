@@ -6,10 +6,6 @@
 
 #include "esp.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct gemm_stratus_access {
 	struct esp_access esp;
 	/* <<--regs-->> */
@@ -26,10 +22,6 @@ struct gemm_stratus_access {
 	unsigned dst_offset;
 };
 
-#ifdef __cplusplus
-}
-#endif
-
 #define GEMM_STRATUS_IOC_ACCESS _IOW ('S', 0, struct gemm_stratus_access)
 
 /* We are using fixed point */
@@ -41,43 +33,27 @@ typedef float esp_native_t;
 
 #define MAX_PRINTED_ERRORS 512
 
-/* <<--params-def-->> */
-#define DO_RELU 0
-#define TRANSPOSE 1
-// #define NINPUTS 2
-// #define D3 8
-// #define D2 8
-// #define D1 8
-// #define ST_OFFSET (NINPUTS * (D1 * D2 + D2 * D3))
-// #define LD_OFFSET1 0
-// #define LD_OFFSET2 (NINPUTS * (D1 * D2))
-
 #define NACC 1
 #define ACC_TLB_ENTRIES 128
 #define ACC_PAGE_SIZE (1 << 20)
 #define MAX_SIZE (ACC_PAGE_SIZE * ACC_TLB_ENTRIES)
 
-const struct esp_access esp2_gemm =
-    {
-        .contig = NULL,
-        .run = 0,
-        .p2p_store = 0,
-        .p2p_nsrcs = 0,
-        .p2p_srcs = {"", "", "", ""},
-        .coherence = ACC_COH_NONE,
-        .footprint = 0,
-        .alloc_policy = CONTIG_ALLOC_PREFERRED,
-        .ddr_node = 0,
-        .in_place = 0,
-        .reuse_factor = 0,
-};
-
 struct gemm_stratus_access gemm_cfg_000[] = {
 	{
-        .esp = esp2_gemm,
+		.esp.contig = NULL,
+        .esp.run = 0,
+        .esp.p2p_store = 0,
+        .esp.p2p_nsrcs = 0,
+        .esp.p2p_srcs = {"", "", "", ""},
+        .esp.coherence = ACC_COH_NONE,
+        .esp.footprint = 0,
+        .esp.alloc_policy = CONTIG_ALLOC_PREFERRED,
+        .esp.ddr_node = 0,
+        .esp.in_place = 0,
+        .esp.reuse_factor = 0,
 		/* <<--descriptor-->> */
-		.do_relu = DO_RELU,
-		.transpose = TRANSPOSE,
+		.do_relu = 0,
+		.transpose = 0,
 		.ninputs = 0,
 		.d3 = 0,
 		.d2 = 0,
