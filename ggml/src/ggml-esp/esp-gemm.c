@@ -20,8 +20,8 @@
 
 #define UNUSED GGML_UNUSED
 
-#define RM 8
-#define RN 8
+// #define RM 8
+// #define RN 8
 
 /**
  * Performs optimized matrix multiplication on CPU.
@@ -224,7 +224,7 @@ static inline void sw_run(esp_thread_info_t cfg[])
 {
     esp_token_t accum;
 
-    const unsigned int jobs = gemm_cfg_000->ninputs;
+    const unsigned int n_jobs = gemm_cfg_000->ninputs;
     const unsigned int m = gemm_cfg_000->d1;
     const unsigned int k = gemm_cfg_000->d2;
     const unsigned int n = gemm_cfg_000->d3;
@@ -235,7 +235,7 @@ static inline void sw_run(esp_thread_info_t cfg[])
     const esp_token_t *Bs = &hw_buf[gemm_cfg_000->ld_offset2];
     esp_token_t *Cs = &hw_buf[gemm_cfg_000->st_offset];
 
-    for (unsigned int job = 0; job < jobs; ++job)
+    for (unsigned int job = 0; job < n_jobs; ++job)
     {
         const esp_token_t *A = &As[job * m * k];
         const esp_token_t *B = &Bs[job * k * n];
@@ -282,7 +282,7 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 #elif defined(GGML_USE_ESP_RISCV)
     printf("esp_alloc...");
     esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
-    printf("finished\n");
+    printf("finished (acc_buff = %p)\n", (void *)acc_buff);
 #endif
     esp_token_t *acc_x = acc_buff; /* Location of X */
     esp_token_t *acc_y = acc_buff + k; /* Location of Y */
@@ -319,7 +319,7 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 #if defined(GGML_USE_ESP_TEST)
     sw_run(cfg_000);
 #elif defined(GGML_USE_ESP_RISCV)
-    printf("esp_run...");
+    printf("esp_run (cfg_000->hw_buf = %p)...", cfg_000->hw_buf);
     print_gemm_cfg(cfg_000, gemm_cfg_000);
     esp_run(cfg_000, NACC);
     printf("finished\n");
