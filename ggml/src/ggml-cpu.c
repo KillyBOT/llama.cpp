@@ -46,7 +46,7 @@
 #endif
 
 #if defined(GGML_USE_ESP_TEST) || defined(GGML_USE_ESP_RISCV)
-#include <esp-riscv/esp-gemm.h>
+#include <ggml-esp/esp-gemm.h>
 #endif
 
 #if defined(_MSC_VER)

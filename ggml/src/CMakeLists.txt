@@ -268,8 +268,8 @@ if (GGML_LLAMAFILE)
 endif()
 
 if (GGML_ESP_RISCV OR GGML_ESP_TEST)
-    file(GLOB GGML_HEADERS_ESP "esp-riscv/*.h")
-    set(GGML_SOURCES_ESP esp-riscv/esp-gemm.c)
+    set(GGML_HEADERS_ESP ggml-esp/esp-gemm.h)
+    set(GGML_SOURCES_ESP ggml-esp/esp-gemm.c)
 
     if (GGML_ESP_TEST)
         message(STATUS "Using ESP with software tests")

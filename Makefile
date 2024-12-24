@@ -583,13 +583,13 @@ endif
 ifdef GGML_ESP_TEST
 	MK_CFLAGS   += -DGGML_USE_ESP_TEST
 	MK_CPPFLAGS += -DGGML_USE_ESP_TEST
-	OBJ_GGML    += ggml/src/esp-riscv/esp-gemm.o
+	OBJ_GGML    += ggml/src/ggml-esp/esp-gemm.o
 else ifdef GGML_ESP_RISCV
 	MK_CFLAGS   += -DGGML_USE_ESP_RISCV
 	MK_CPPFLAGS += -DGGML_USE_ESP_RISCV
-	MK_LDFLAGS  += -Lggml/src/esp-riscv -lesp -lcontig -lmonitors -ltest -lutils
-	OBJ_GGML    += ggml/src/esp-riscv/esp-gemm.o
-endif # GGML_ESP_RISCV
+	MK_LDFLAGS  += -Lggml/src/ggml-esp -lesp -lcontig -lmonitors -ltest -lutils
+	OBJ_GGML    += ggml/src/ggml-esp/esp-gemm.o
+endif # GGML_ESP_*
 
 ifndef GGML_NO_AMX
 	MK_CPPFLAGS += -DGGML_USE_AMX
@@ -1106,22 +1106,22 @@ ggml/src/llamafile/sgemm.o: \
 endif # GGML_NO_LLAMAFILE
 
 ifdef GGML_ESP_TEST
-ggml/src/esp-riscv/esp-riscv.o: \
-	ggml/src/esp-riscv/esp-gemm.c \
-	ggml/src/esp-riscv/esp-gemm.h \
-	ggml/src/esp-riscv/esp-gemm-cfg.h \
-	ggml/src/esp-riscv/esp-acc-prints.h \
+ggml/src/ggml-esp/esp-gemm.o: \
+	ggml/src/ggml-esp/esp-gemm.c \
+	ggml/src/ggml-esp/esp-gemm.h \
+	ggml/src/ggml-esp/esp-gemm-cfg.h \
+	ggml/src/ggml-esp/esp-acc-prints.h \
 	ggml/include/ggml.h
 	$(CC) $(CFLAGS) -c $< -o $@
 else ifdef GGML_ESP_RISCV
-ggml/src/esp-riscv/esp-riscv.o: \
-	ggml/src/esp-riscv/esp-gemm.c \
-	ggml/src/esp-riscv/esp-gemm.h \
-	ggml/src/esp-riscv/esp-gemm-cfg.h \
-	ggml/src/esp-riscv/esp-acc-prints.h \
+ggml/src/ggml-esp/esp-gemm.o: \
+	ggml/src/ggml-esp/esp-gemm.c \
+	ggml/src/ggml-esp/esp-gemm.h \
+	ggml/src/ggml-esp/esp-gemm-cfg.h \
+	ggml/src/ggml-esp/esp-acc-prints.h \
 	ggml/include/ggml.h
 	$(CC) $(CFLAGS) -c $< -o $@
-endif # GGML_ESP_RISCV
+endif # GGML_ESP_*
 
 ifndef GGML_NO_AMX
 ggml/src/ggml-amx.o: \
@@ -1278,7 +1278,7 @@ clean:
 	rm -rvf ggml/*.so
 	rm -vrf ggml/src/*.o
 	rm -rvf ggml/src/llamafile/*.o
-	rm -rvf ggml/src/esp-riscv/*.o
+	rm -rvf ggml/src/ggml-esp/*.o
 	rm -rvf common/build-info.cpp
 	rm -vrf ggml/src/ggml-metal-embed.metal
 	rm -vrf ggml/src/ggml-cuda/*.o

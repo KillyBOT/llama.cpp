@@ -1,4 +1,4 @@
-#include "esp-riscv/esp.h"
+#include "ggml-esp/esp.h"
 #include "ggml-impl.h"
 #if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -226,7 +226,7 @@ static inline void sw_run(esp_thread_info_t cfg[])
 
     const unsigned int jobs = gemm_cfg_000->ninputs;
     const unsigned int m = gemm_cfg_000->d1;
-    const unsigned int o = gemm_cfg_000->d2;
+    const unsigned int k = gemm_cfg_000->d2;
     const unsigned int n = gemm_cfg_000->d3;
     const unsigned int transpose = gemm_cfg_000->transpose;
 
@@ -237,8 +237,8 @@ static inline void sw_run(esp_thread_info_t cfg[])
 
     for (unsigned int job = 0; job < jobs; ++job)
     {
-        const esp_token_t *A = &As[job * m * o];
-        const esp_token_t *B = &Bs[job * o * n];
+        const esp_token_t *A = &As[job * m * k];
+        const esp_token_t *B = &Bs[job * k * n];
         esp_token_t *C = &Cs[job * m * n];
 
         for (unsigned int i = 0; i < m; ++i)
@@ -247,10 +247,10 @@ static inline void sw_run(esp_thread_info_t cfg[])
             {
                 accum = 0.0;
 
-                for (unsigned int k = 0; k < o; ++k)
+                for (unsigned int l = 0; l < k; ++l)
                 {
-                    const int Aik = (i * o) + k;
-                    const int Bkj = transpose ? (j * o) + k : (k * n) + j;
+                    const int Aik = (i * k) + l;
+                    const int Bkj = transpose ? (j * k) + l : (l * n) + j;
 
                     accum += A[Aik] * B[Bkj];
                 }
@@ -290,13 +290,18 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 
     float sum_f = 0.0; // Final sum; used to reduce the number of times s needs to be dereferenced
 
-    for (int l = 0; l < n_b; ++l) {
-        for (int ll = 0; ll < qk / 2; ++ll) {
-            acc_x[(l * qk) + ll] =            (x[l].qs[ll] & 0x0F) - 8;
-            acc_x[(l * qk) + ll + (qk / 2)] = (x[l].qs[ll] >>   4) - 8;
+    // For each block...
+    for (int b = 0; b < n_b; ++b) {
+        // For each quant
+        for (int q = 0; q < qk / 2; ++q) {
+            // Extract low nibble
+            acc_x[(b * qk) + q] =            (x[b].qs[q] & 0x0F) - 8;
+            // Extract high nibble
+            acc_x[(b * qk) + q + (qk / 2)] = (x[b].qs[q] >>   4) - 8;
         }
-        for (int kk = 0; kk < qk; ++kk) {
-            acc_y[(l * qk) + kk] = (esp_token_t)y[l].qs[kk];
+        for (int q = 0; q < qk; ++q) {
+            // Extract byte
+            acc_y[(b * qk) + q] = (esp_token_t)y[b].qs[q];
         }
     }
 
@@ -315,7 +320,7 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
     sw_run(cfg_000);
 #elif defined(GGML_USE_ESP_RISCV)
     printf("esp_run...");
-    print_gemm_cfg(cfg_000, gemm_cfg_000-);
+    print_gemm_cfg(cfg_000, gemm_cfg_000);
     esp_run(cfg_000, NACC);
     printf("finished\n");
 #endif
