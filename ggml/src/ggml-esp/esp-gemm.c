@@ -87,6 +87,10 @@ void esp_run(esp_thread_info_t cfg[], unsigned nacc)
         }
     }
 }
+inline unsigned long long esp_run_no_print(esp_thread_info_t *cfg, unsigned int nacc) {
+    esp_run(cfg, nacc);
+    return cfg->hw_ns;
+}
 #endif // GGML_USE_ESP_TEST
 
 
@@ -208,7 +212,7 @@ bool esp_riscv_gemm(int64_t m, int64_t n, int64_t k, const void *vA, int64_t lda
             }
         }
 
-        esp_run(thread_cfg_000, NACC);
+        esp_run_no_print(thread_cfg_000, NACC);
 
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
@@ -298,7 +302,7 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 
     // print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
 
-    esp_run(thread_cfg_000, NACC);
+    esp_run_no_print(thread_cfg_000, NACC);
 
     /* Then, find the dot product of each block's dot product with their deltas */
     /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
@@ -407,7 +411,7 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
 
     // print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
 
-    esp_run(thread_cfg_000, NACC);
+    esp_run_no_print(thread_cfg_000, NACC);
 
     /* Second run: Calculate the scaled dot products */
     gemm_cfg_000->transpose = 1;
@@ -419,9 +423,9 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
     gemm_cfg_000->ld_offset2 = k * 2 + n_b * n_b * n_sb;
     gemm_cfg_000->st_offset  = k * 2 + n_b * n_b * n_sb * 2;
 
-    print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
+    // print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
 
-    esp_run(thread_cfg_000, NACC);
+    esp_run_no_print(thread_cfg_000, NACC);
 
     /* Set all sums to 0 */
     memset(sums, 0, n_b * sizeof(float));
@@ -549,7 +553,7 @@ void ggml_vec_dot_q8_0_q8_0_esp(int k, float *restrict s, size_t bs,
     gemm_cfg_000->ld_offset2 = k;
     gemm_cfg_000->st_offset = k + k;
 
-    esp_run(thread_cfg_000, NACC);
+    esp_run_no_print(thread_cfg_000, NACC);
 
     /* Then, find the dot product of each block's dot product with their deltas */
     /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
