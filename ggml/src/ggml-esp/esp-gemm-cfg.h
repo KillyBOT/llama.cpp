@@ -67,7 +67,7 @@ struct gemm_stratus_access gemm_cfg_000[] = {
 
 #define GEMM_STRATUS_IOC_ACCESS _IOW('S', 0, struct gemm_stratus_access)
 
-esp_thread_info_t cfg_000[] = {
+esp_thread_info_t thread_cfg_000[] = {
 	{
 		.run = true,
 		.devname = "gemm_stratus.0",

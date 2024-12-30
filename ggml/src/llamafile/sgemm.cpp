@@ -422,21 +422,22 @@ class tinyBLAS {
         int64_t duty = (tiles + nth - 1) / nth;
         int64_t start = duty * ith;
         int64_t end = start + duty;
-        if (end > tiles)
+        if (end > tiles) {
             end = tiles;
+        }
         for (int64_t job = start; job < end; ++job) {
-            int64_t ii = m0 + job / xtiles * RM;
-            int64_t jj = n0 + job % xtiles * RN;
+            int64_t i_tile = m0 + ((job / xtiles) * RM);
+            int64_t j_tile = n0 + ((job % xtiles) * RN);
             D Cv[RN][RM] = {};
             for (int64_t l = 0; l < k; l += KN)
                 for (int64_t j = 0; j < RN; ++j)
                     for (int64_t i = 0; i < RM; ++i)
-                        Cv[j][i] = madd(load<V>(A + lda * (ii + i) + l),
-                                        load<V>(B + ldb * (jj + j) + l),
+                        Cv[j][i] = madd(load<V>(A + lda * (i_tile + i) + l),
+                                        load<V>(B + ldb * (j_tile + j) + l),
                                         Cv[j][i]);
             for (int64_t j = 0; j < RN; ++j)
                 for (int64_t i = 0; i < RM; ++i)
-                    C[ldc * (jj + j) + (ii + i)] = hsum(Cv[j][i]);
+                    C[ldc * (j_tile + j) + (i_tile + i)] = hsum(Cv[j][i]);
         }
     }
 

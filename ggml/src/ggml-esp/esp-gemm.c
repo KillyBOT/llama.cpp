@@ -22,6 +22,74 @@
 
 // #define RM 8
 // #define RN 8
+#define F16_FRAC 0x03FF;
+#define F16_EXP  0x7C00;
+#define F16_SIGN 0x8000;
+// static inline int32_t f16_to_i32(uint16_t f_bits) {
+//     const uint16_t f16_frac = 0x03FF;
+//     const uint16_t f16_exp  = 0x7C00;
+//     const uint16_t f16_sign = 0x8000;
+// }
+
+/* If we aren't linking a static library, then we will use these definitions for the libesp functions. */
+
+#if defined(GGML_USE_ESP_TEST)
+
+void *esp_alloc(size_t size) {
+    return malloc(size);
+}
+void esp_free(void *buf) {
+    free(buf);
+}
+
+/* Just a copy of the hardware accelerator's GEMM procedure, to verify everything works */
+/* On the actual hardware, this should not be used */
+/* The inlining is stupid I know, but since this is called so frequently it makes sense to */
+void esp_run(esp_thread_info_t cfg[], unsigned nacc)
+{
+    esp_token_t accum;
+
+    const unsigned int n_jobs = gemm_cfg_000->ninputs;
+    const unsigned int m = gemm_cfg_000->d1;
+    const unsigned int k = gemm_cfg_000->d2;
+    const unsigned int n = gemm_cfg_000->d3;
+    const unsigned int transpose = gemm_cfg_000->transpose;
+
+    esp_token_t *hw_buf = cfg[0].hw_buf;
+    const esp_token_t *As = &hw_buf[gemm_cfg_000->ld_offset1];
+    const esp_token_t *Bs = &hw_buf[gemm_cfg_000->ld_offset2];
+    esp_token_t *Cs = &hw_buf[gemm_cfg_000->st_offset];
+
+    UNUSED(nacc);
+
+    for (unsigned int job = 0; job < n_jobs; ++job)
+    {
+        const esp_token_t *A = &As[job * m * k];
+        const esp_token_t *B = &Bs[job * k * n];
+        esp_token_t *C = &Cs[job * m * n];
+
+        for (unsigned int i = 0; i < m; ++i)
+        {
+            for (unsigned int j = 0; j < n; ++j)
+            {
+                accum = 0.0;
+
+                for (unsigned int l = 0; l < k; ++l)
+                {
+                    const int Ail = (i * k) + l;
+                    const int Blj = transpose ? (j * k) + l : (l * n) + j;
+
+                    accum += A[Ail] * B[Blj];
+                }
+
+                C[(i * n) + j] = accum;
+            }
+        }
+    }
+}
+#endif // GGML_USE_ESP_TEST
+
+
 
 /**
  * Performs optimized matrix multiplication on CPU.
@@ -53,212 +121,131 @@
  * @param Ctype is GGML data type of `C`
  * @return true if this function was able to service the matmul request
  */
-// bool esp_riscv_gemm(int64_t m, int64_t n, int64_t o, const void *vA, int64_t lda,
-//                     const void *vB, int64_t ldb, void *vC, int64_t ldc, int ith,
-//                     int nth, int Atype, int Btype, int Ctype) {
-//
-//     size_t src0_len, src1_len, dest_len, src0_size, src1_size, dest_size;
-//     float *acc_buff;
-//     float *aqk, *bqk, *cqk;
-//
-//     assert(m >= 0);
-//     assert(n >= 0);
-//     assert(k >= 0);
-//     assert(lda >= k);
-//     assert(ldb >= k);
-//     assert(ldc >= m);
-//     assert(nth > 0); // Unused for now
-//     assert(ith < nth); // Unused for now
-//
-//     if (n < 2)
-//         return false;
-//
-//     if (Ctype != GGML_TYPE_F32)
-//         return false;
-//
-//     switch (Atype) {
-//     case GGML_TYPE_Q4_0: {
-//         if (Btype != GGML_TYPE_Q8_0)
-//             return false;
-//
-//         src0_len = m * o;
-//         src1_len = o * n;
-//         dest_len = m * n;
-//         src0_size = src0_len * sizeof(float);
-//         src1_size = src1_len * sizeof(float);
-//         dest_size = dest_len * sizeof(float);
-//
-//         const block_q4_0 *restrict A = vA;
-//         const block_q8_0 *restrict B = vB;
-//         float *restrict C = vC;
-//         // const int qk = QK8_0;
-//         float sum_f;
-//
-//         float A_buff[o * QK4_0];
-//         float B_buff[o * QK8_0];
-//
-//         // for (int k = 0; k < o; k++) {
-//         //     sum_f = 0.0;
-//         //     for (int j = 0; j < n; j++) {
-//         //         for (int i = 0; i < m; i++) {
-//         //             dequantize_row_q4_0(A + (lda * i) + k, A_buff, QK4_0);
-//         //             dequantize_row_q8_0(B + (ldb * j) + k, B_buff, QK8_0);
-//         //
-//         //         }
-//         //     }
-//         // }
-//
-//         for (int j = 0; j < n; j++) {
-//             const block_q8_0 *restrict Bj = B + (j * ldb);
-//             dequantize_row_q8_0(Bj, B_buff, o * QK8_0);
-//
-//             for (int i = 0; i < m; i++) {
-//                 const block_q4_0 *restrict Ai = A + (i * lda);
-//
-//                 dequantize_row_q4_0(Ai, A_buff, o * QK4_0);
-//                 //
-//                 // printf("Ai: [");
-//                 // for (int k = 0; k < o; k++) {
-//                 //     printf(k == 0 ? "%f" : " %f", A_buff[k]);
-//                 // }
-//                 // printf("]\n");
-//
-//                 sum_f = 0.0;
-//                 for (int k = 0; k < o * QK8_0; k++) {
-//                     sum_f += A_buff[k] * B_buff[k];
-//                 }
-//                 // for (int k = 0; k < o / qk; k++) {
-//                 //
-//                 //     sumi_lo = 0;
-//                 //     sumi_hi = 0;
-//                 //     for (int kk = 0; kk < qk; kk++) {
-//                 //         const int lo = (Ai[k].qs[kk] & 0x0F) - 8;
-//                 //         const int hi = (Ai[k].qs[kk] >>   4) - 8;
-//                 //
-//                 //         sumi_lo += lo * Bj[k].qs[kk];
-//                 //         sumi_hi += hi * Bj[k].qs[kk + (qk / 2)];
-//                 //     }
-//                 //     sum_f += (sumi_lo + sumi_hi) * GGML_FP16_TO_FP32(Ai[k].d) * GGML_FP16_TO_FP32(Bj[k].d);
-//                 // }
-//
-//                 C[(j * ldc) + i] = sum_f;
-//             }
-//         }
-//
-//         /* Allocate a buffer for the accelerator. For now, just make it max size */
-//         // accel_buf = (token_t *)esp_alloc(MAX_SIZE);
-//         // cfg_000[0].hw_buf = accel_buf;
-//
-//         // gemm_cfg_000[0].do_relu = 0;
-//         // gemm_cfg_000[0].transpose = 1;
-//         // gemm_cfg_000[0].ninputs = 1; // TODO: Batch more inputs together?
-//         // gemm_cfg_000[0].d1 = m;
-//         // gemm_cfg_000[0].d2 = k;
-//         // gemm_cfg_000[0].d3 = n;
-//         //
-//         // print_gemm_cfg(cfg_000, gemm_cfg_000);
-//         //
-//         // accel_buf = (float *)esp_alloc(MAX_SIZE);
-//
-//         // aqk = accel_buf;
-//         // bqk = accel_buf + src0_len;
-//
-//         // int64_t m_tiles = m / RM;
-//         // int64_t n_tiles = n / RN;
-//         // int64_t tiles = n_tiles * m_tiles;
-//         // int64_t duty = (tiles + nth - 1) / nth;
-//         // int64_t start_tile = duty * ith;
-//         // int64_t end_tile = start_tile + duty;
-//         // if (end_tile > tiles)
-//         //     end_tile = tiles;
-//         // for (int64_t tile = start_tile; tile < end_tile; ++tile) {
-//         //     int64_t i = (tile / n_tiles) * RM;
-//         //     int64_t j = (tile % n_tiles) * RN;
-//         //     float CC[RN][RM] = {};
-//         //     for (int64_t k = 0; k < o; ++k) {
-//         //         for (int64_t jj = 0; jj < RN; ++jj) {
-//         //             for (int64_t ii = 0; ii < RM; ++ii) {
-//         //                 CC[jj][ii] =
-//         //             }
-//         //         }
-//         //     }
-//         //
-//         //     for (int64_t jj = 0; jj < RN; ++jj) {
-//         //         for (int64_t ii = 0; ii < RM; ++ii) {
-//         //             ((float *)C)[(ldc * (jj + j)) + (ii + i)] = CC[j][i];
-//         //         }
-//         //     }
-//         // }
-//         //
-//         // esp_free(accel_buf);
-//
-//         return true;
-//     }
-//
-//     default:
-//         return false;
-//     }
-//
-//     /* Stupid trick so that the compiler doesn't complain that these values are
-//     * never used */
-//     (void)m;
-//     (void)n;
-//     (void)o;
-//     (void)vA;
-//     (void)lda;
-//     (void)vB;
-//     (void)ldb;
-//     (void)vC;
-//     (void)ldc;
-//     (void)ith;
-//     (void)nth;
-//     (void)Atype;
-//     (void)Btype;
-//     (void)Ctype;
-// }
+bool esp_riscv_gemm(int64_t m, int64_t n, int64_t k, const void *vA, int64_t lda,
+                    const void *vB, int64_t ldb, void *vC, int64_t ldc, int ith,
+                    int nth, int Atype, int Btype, int Ctype) {
+    size_t src0_len, src1_len, dest_len;
+    esp_token_t *accel_buf, *A_buf, *B_buf, *C_buf;
 
-/* Just a copy of the hardware accelerator's GEMM procedure, to verify everything works */
-/* On the actual hardware, this should not be used */
-/* The inlining is stupid I know, but since this is called so frequently it makes sense to */
-static inline void sw_run(esp_thread_info_t cfg[])
-{
-    esp_token_t accum;
+    assert(m >= 0);
+    assert(n >= 0);
+    assert(k >= 0);
+    assert(lda >= k);
+    assert(ldb >= k);
+    assert(ldc >= m);
+    assert(nth > 0); // Unused for now
+    assert(ith < nth); // Unused for now
 
-    const unsigned int n_jobs = gemm_cfg_000->ninputs;
-    const unsigned int m = gemm_cfg_000->d1;
-    const unsigned int k = gemm_cfg_000->d2;
-    const unsigned int n = gemm_cfg_000->d3;
-    const unsigned int transpose = gemm_cfg_000->transpose;
+    if (n < 2)
+        return false;
 
-    esp_token_t *hw_buf = cfg[0].hw_buf;
-    const esp_token_t *As = &hw_buf[gemm_cfg_000->ld_offset1];
-    const esp_token_t *Bs = &hw_buf[gemm_cfg_000->ld_offset2];
-    esp_token_t *Cs = &hw_buf[gemm_cfg_000->st_offset];
+    if (Ctype != GGML_TYPE_F32)
+        return false;
 
-    for (unsigned int job = 0; job < n_jobs; ++job)
-    {
-        const esp_token_t *A = &As[job * m * k];
-        const esp_token_t *B = &Bs[job * k * n];
-        esp_token_t *C = &Cs[job * m * n];
+    switch (Atype) {
+    case GGML_TYPE_Q4_0: {
+        if (Btype != GGML_TYPE_Q8_0)
+            return false;
 
-        for (unsigned int i = 0; i < m; ++i)
-        {
-            for (unsigned int j = 0; j < n; ++j)
-            {
-                accum = 0.0;
+        const int qk = QK8_0;
 
-                for (unsigned int l = 0; l < k; ++l)
-                {
-                    const int Aik = (i * k) + l;
-                    const int Bkj = transpose ? (j * k) + l : (l * n) + j;
+        src0_len = m * qk * k;
+        src1_len = qk * n * k;
+        dest_len = m * n * k;
 
-                    accum += A[Aik] * B[Bkj];
+        const block_q4_0 *const A = vA;
+        const block_q8_0 *const B = vB;
+        float *const C = vC;
+        float sum_f;
+
+        float A_deltas[m * k];
+        float B_deltas[n * k];
+
+        assert(k % qk == 0);
+
+        /* Allocate a buffer for the accelerator. For now, just make it max size */
+        accel_buf = (esp_token_t *)esp_alloc(sizeof(esp_token_t) * (src0_len + src1_len + dest_len));
+        thread_cfg_000->hw_buf = accel_buf;
+        gemm_cfg_000->do_relu = 0;
+        gemm_cfg_000->transpose = 1;
+        gemm_cfg_000->ninputs = k; // TODO: Batch more inputs together?
+        gemm_cfg_000->d1 = m;
+        gemm_cfg_000->d2 = qk;
+        gemm_cfg_000->d3 = n;
+        gemm_cfg_000->ld_offset1 = 0;
+        gemm_cfg_000->ld_offset2 = src0_len;
+        gemm_cfg_000->st_offset = src0_len + src1_len;
+
+        A_buf = accel_buf;
+        B_buf = accel_buf + src0_len;
+        C_buf = accel_buf + src0_len + src1_len;
+
+        // print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
+
+        for (int l = 0; l < k; l++) {
+            for (int i = 0; i < m; i++) {
+                const block_q4_0 *restrict Ai = A + (i * lda);
+                // Set delta
+                A_deltas[(l * m) + i] = GGML_FP16_TO_FP32(Ai[l].d);
+                // For each quant
+                for (int q = 0; q < qk / 2; ++q) {
+                    // Extract low nibble
+                    A_buf[(l * m * qk) + (i * qk) + q] =            (Ai[l].qs[q] & 0x0F) - 8;
+                    // Extract high nibble
+                    A_buf[(l * m * qk) + (i * qk) + q + (qk / 2)] = (Ai[l].qs[q] >>   4) - 8;
                 }
 
-                C[(i * n) + j] = accum;
+            }
+            for (int j = 0; j < n; j++) {
+                const block_q8_0 *restrict Bj = B + (j * ldb);
+                // Set delta
+                B_deltas[(l * n) + j] = GGML_FP16_TO_FP32(Bj[l].d);
+                // For each quant
+                for (int q = 0; q < qk; ++q) {
+                    // Extract byte
+                    B_buf[(l * n * qk) + (j * qk) + q] = (esp_token_t)Bj[l].qs[q];
+                }
             }
         }
+
+        esp_run(thread_cfg_000, NACC);
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                // int sum_i = 0;
+                sum_f = 0.0;
+                for (int l = 0; l < k; l++) {
+                    sum_f += C_buf[(l * m * n) + (i * n) + j] * A_deltas[(l * m) + i] * B_deltas[(l * n) + j];
+                }
+                C[(ldc * j) + i] = sum_f;
+            }
+        }
+
+        esp_free(accel_buf);
+
+        return true;
     }
+
+    default:
+        return false;
+    }
+
+    /* Stupid trick so that the compiler doesn't complain that these values are
+    * never used */
+    (void)m;
+    (void)n;
+    (void)k;
+    (void)vA;
+    (void)lda;
+    (void)vB;
+    (void)ldb;
+    (void)vC;
+    (void)ldc;
+    (void)ith;
+    (void)nth;
+    (void)Atype;
+    (void)Btype;
+    (void)Ctype;
 }
 
 void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void * restrict vx, size_t bx, const void * restrict vy, size_t by, int mn) {
@@ -276,14 +263,7 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
     const block_q4_0 * restrict x = vx;
     const block_q8_0 * restrict y = vy;
 
-    /* The accelerator's buffer. Contains enough room for the input vectors and the output vector*/
-#if defined(GGML_USE_ESP_TEST)
-    esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b));
-#elif defined(GGML_USE_ESP_RISCV)
-    printf("esp_alloc...");
     esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
-    printf("finished (acc_buff = %p)\n", (void *)acc_buff);
-#endif
     esp_token_t *acc_x = acc_buff; /* Location of X */
     esp_token_t *acc_y = acc_buff + k; /* Location of Y */
     esp_token_t *acc_i = acc_buff + (2 * k); /* Location of X * Y, before using deltas */
@@ -306,7 +286,7 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
     }
 
     /* Find the dot products of each block */
-    cfg_000->hw_buf = acc_buff;
+    thread_cfg_000->hw_buf = acc_buff;
     gemm_cfg_000->transpose = 1; // Technically not needed, but still nice to include
     gemm_cfg_000->ninputs = n_b; // We are finding n_b dot products at a time
     gemm_cfg_000->d1 = 1;
@@ -316,14 +296,9 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
     gemm_cfg_000->ld_offset2 = k;
     gemm_cfg_000->st_offset = 2 * k;
 
-#if defined(GGML_USE_ESP_TEST)
-    sw_run(cfg_000);
-#elif defined(GGML_USE_ESP_RISCV)
-    printf("esp_run (cfg_000->hw_buf = %p)...", cfg_000->hw_buf);
-    print_gemm_cfg(cfg_000, gemm_cfg_000);
-    esp_run(cfg_000, NACC);
-    printf("finished\n");
-#endif
+    // print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
+
+    esp_run(thread_cfg_000, NACC);
 
     /* Then, find the dot product of each block's dot product with their deltas */
     /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
@@ -333,35 +308,8 @@ void ggml_vec_dot_q4_0_q8_0_esp(int k, float * restrict s, size_t bs, const void
 
     *s = sum_f;
 
-    // printf("X:[");
-    // for (int k = 0; k < o; k++) {
-    //     printf(k == 0 ? "%d" : " %d", acc_x[k]);
-    // }
-    // printf("]\nY:[");
-    // for (int k = 0; k < o; k++) {
-    //     printf(k == 0 ? "%d" : " %d", acc_y[k]);
-    // }
-    // printf("]\nS:[");
-    // for (int k = 0; k < nb; k++) {
-    //     printf(k == 0 ? "%d" : " %d", acc_y[o + k]);
-    // }
-    // printf("]\nD:[");
-    // for (int k = 0; k < nb; k++) {
-    //     printf(k == 0 ? "%f" : " %f", fx2float(acc_d[k], FX_IL));
-    // }
-    // printf("]\n");
-    // printf("Final result: %f\n", sum_f);
-    //
-    // ggml_vec_dot_q4_0_q8_0(o, &sum_f, bs, vx, bx, vy, by, mn);
-    // printf("Expected_result: %f\n", sum_f);
-
-#if defined(GGML_USE_ESP_TEST)
-    free(acc_buff);
-#elif defined(GGML_USE_ESP_RISCV)
-    printf("esp_free...");
     esp_free(acc_buff);
-    printf("finished\n");
-#endif
+
 }
 
 // TODO: Make this not really slow...
@@ -396,11 +344,7 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
     int8_t  x_q8[QK_K]; // Quants of superblock X
     float   sums[n_b];  // Sums of each block
 
-#if defined(GGML_USE_ESP_TEST)
-    esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb));
-#elif defined (GGML_USE_ESP_RISCV)
     esp_token_t *acc_buff = (esp_token_t *)esp_alloc(sizeof(esp_token_t) * (k + k + n_b * n_b * n_sb + n_b * n_b * n_sb + n_b * n_sb));
-#endif
     esp_token_t *acc_x = acc_buff;
     esp_token_t *acc_y = acc_x + k;
     esp_token_t *acc_unscaled = acc_y + k;
@@ -450,14 +394,8 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
         sum_f -= delta_min * sums_b;
     }
 
-    // printf("First iter:[");
-    // for (int l = 0; l < k; l++) {
-    //     printf("(%d * %d) ", acc_x[l], acc_y[l]);
-    // }
-    // printf("]\n");
-
     /* First run: Calculate the non-scaled dot products */
-    cfg_000->hw_buf = acc_buff;
+    thread_cfg_000->hw_buf = acc_buff;
     gemm_cfg_000->transpose = 1; // Technically not needed, but still nice to include
     gemm_cfg_000->ninputs = n_b * n_b * n_sb; // # of inputs = # of blocks * # of dot products
     gemm_cfg_000->d1 = 1;
@@ -467,18 +405,9 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
     gemm_cfg_000->ld_offset2 = k;
     gemm_cfg_000->st_offset  = k * 2;
 
-#if defined(GGML_USE_ESP_TEST)
-    sw_run(cfg_000);
-#elif defined(GGML_USE_ESP_RISCV)
-    esp_run(cfg_000, NACC);
-#endif
+    // print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
 
-    // printf("Second iter:[");
-    // for (int l = 0; l < n_b * n_b * n_sb; l++) {
-    //     printf("(%d * %d) ", acc_unscaled[l], acc_scales[l]);
-    // }
-    // printf("]\n");
-
+    esp_run(thread_cfg_000, NACC);
 
     /* Second run: Calculate the scaled dot products */
     gemm_cfg_000->transpose = 1;
@@ -490,16 +419,12 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
     gemm_cfg_000->ld_offset2 = k * 2 + n_b * n_b * n_sb;
     gemm_cfg_000->st_offset  = k * 2 + n_b * n_b * n_sb * 2;
 
-    sw_run(cfg_000);
+    print_gemm_cfg(thread_cfg_000, gemm_cfg_000);
 
-    /*printf("Scaled dot products:[");*/
-    /*for (int l = 0; l < n_b * n_sb; l++) {*/
-    /*    printf("%d (%d) ", acc_scaled[l], dots[l]);*/
-    /*}*/
-    /*printf("]\n");*/
+    esp_run(thread_cfg_000, NACC);
 
     /* Set all sums to 0 */
-    memset(sums, 0, n_b*sizeof(float));
+    memset(sums, 0, n_b * sizeof(float));
 
     for (int sb = 0; sb < n_sb; ++sb) {
 
@@ -516,12 +441,7 @@ void ggml_vec_dot_q4_K_q8_K_esp(int k, float * restrict s, size_t bs, const void
 
     *s = sum_f;
 
-#if defined(GGML_USE_ESP_TEST)
-    free(acc_buff);
-#elif defined(GGML_USE_ESP_RISCV)
     esp_free(acc_buff);
-#endif
-    // printf("Finished\n");
 }
 
 // TODO: Utilize the accelerator here
@@ -604,12 +524,7 @@ void ggml_vec_dot_q8_0_q8_0_esp(int k, float *restrict s, size_t bs,
     const block_q8_0 * restrict x = vx;
     const block_q8_0 * restrict y = vy;
 
-    /* The accelerator's buffer. Contains enough room for the input vectors and the output vector*/
-#if defined(GGML_USE_ESP_TEST)
-    esp_token_t *acc_buff = (esp_token_t *)malloc(sizeof(esp_token_t) * (k + k + n_b));
-#elif defined(GGML_USE_ESP_RISCV)
     esp_token_t *acc_buff = esp_alloc(sizeof(esp_token_t) * (k + k + n_b));
-#endif
     esp_token_t *acc_x = acc_buff; /* Location of X */
     esp_token_t *acc_y = acc_buff + k; /* Location of Y */
     esp_token_t *acc_i = acc_buff + (2 * k); /* Location of X * Y, before using deltas */
@@ -624,7 +539,7 @@ void ggml_vec_dot_q8_0_q8_0_esp(int k, float *restrict s, size_t bs,
     }
 
     /* Find the dot products of each block */
-    cfg_000->hw_buf = acc_buff;
+    thread_cfg_000->hw_buf = acc_buff;
     gemm_cfg_000->transpose = 1; // Technically not needed, but still nice to include
     gemm_cfg_000->ninputs = n_b; // We are finding n_b dot products at a time
     gemm_cfg_000->d1 = 1;
@@ -632,13 +547,9 @@ void ggml_vec_dot_q8_0_q8_0_esp(int k, float *restrict s, size_t bs,
     gemm_cfg_000->d3 = 1;
     gemm_cfg_000->ld_offset1 = 0;
     gemm_cfg_000->ld_offset2 = k;
-    gemm_cfg_000->st_offset = 2 * k;
+    gemm_cfg_000->st_offset = k + k;
 
-#if defined(GGML_USE_ESP_TEST)
-    sw_run(cfg_000);
-#elif defined(GGML_USE_ESP_RISCV)
-    esp_run(cfg_000, NACC);
-#endif
+    esp_run(thread_cfg_000, NACC);
 
     /* Then, find the dot product of each block's dot product with their deltas */
     /* Not only do floats lose precision with how the accelerator is currently designed, there are 32 elements per each block, meaning it's not the end of the world to just multiply deltas here */
@@ -648,11 +559,8 @@ void ggml_vec_dot_q8_0_q8_0_esp(int k, float *restrict s, size_t bs,
 
     *s = sum_f;
 
-#if defined(GGML_USE_ESP_TEST)
-    free(acc_buff);
-#elif defined(GGML_USE_ESP_RISCV)
     esp_free(acc_buff);
-#endif
+
 }
 
 void ggml_gemv_q4_0_q8_0_esp_riscv(int o, float *restrict s, size_t bs, const void *restrict vx, const void *restrict vy, int n, int m) {
